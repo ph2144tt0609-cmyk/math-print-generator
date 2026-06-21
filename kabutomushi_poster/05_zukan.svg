@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" font-family="'Hiragino Maru Gothic ProN','Yu Gothic','Meiryo','Noto Sans CJK JP','Noto Sans JP',sans-serif">
+  <defs>
+    <linearGradient id="bg5" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9f5ff"/><stop offset="1" stop-color="#f4ffe9"/>
+    </linearGradient>
+    <linearGradient id="bodyG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a5630"/><stop offset="1" stop-color="#43280f"/>
+    </linearGradient>
+    <linearGradient id="bodyG2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b3f1d"/><stop offset="1" stop-color="#3a2210"/>
+    </linearGradient>
+    <symbol id="beetleM" viewBox="0 0 250 200">
+      <g stroke="#2e1c0e" stroke-width="7" stroke-linecap="round" fill="none">
+        <path d="M72 150 q-20 16 -42 12"/><path d="M98 160 q-10 26 -30 30"/>
+        <path d="M124 160 q2 28 -10 38"/><path d="M150 152 q20 18 40 12"/>
+        <path d="M168 142 q26 8 46 -2"/>
+      </g>
+      <ellipse cx="98" cy="112" rx="80" ry="54" fill="url(#bodyG)"/>
+      <path d="M30 112 H160" stroke="#241407" stroke-width="3" opacity="0.5"/>
+      <ellipse cx="72" cy="88" rx="30" ry="15" fill="#fff" opacity="0.18"/>
+      <ellipse cx="170" cy="100" rx="36" ry="31" fill="url(#bodyG2)"/>
+      <ellipse cx="202" cy="98" rx="21" ry="18" fill="#321e0d"/>
+      <path d="M190 92 C 208 84 216 78 220 66" stroke="#2b1a0d" stroke-width="11" stroke-linecap="round" fill="none"/>
+      <path d="M200 80 C 218 56 226 50 228 36" stroke="#2b1a0d" stroke-width="14" stroke-linecap="round" fill="none"/>
+      <path d="M228 36 L 214 16" stroke="#2b1a0d" stroke-width="9" stroke-linecap="round"/>
+      <path d="M228 36 L 244 20" stroke="#2b1a0d" stroke-width="9" stroke-linecap="round"/>
+      <circle cx="205" cy="100" r="5.5" fill="#fff"/><circle cx="206" cy="101" r="3" fill="#1a1008"/>
+    </symbol>
+  </defs>
+
+  <rect width="1000" height="1000" fill="url(#bg5)"/>
+  <g opacity="0.4" fill="#cfe7f5"><circle cx="80" cy="90" r="44"/><circle cx="920" cy="90" r="44"/></g>
+
+  <!-- タイトル -->
+  <rect x="150" y="34" width="700" height="92" rx="46" fill="#00695c"/>
+  <rect x="150" y="34" width="700" height="92" rx="46" fill="none" stroke="#fff" stroke-width="5"/>
+  <text x="500" y="98" text-anchor="middle" font-size="50" font-weight="bold" fill="#fff">かぶとむし 大けんきゅう</text>
+
+  <!-- 体の つくり 見出し -->
+  <text x="500" y="178" text-anchor="middle" font-size="30" font-weight="bold" fill="#00695c">体の つくりを しらべよう</text>
+
+  <!-- 大きな かぶとむし -->
+  <use href="#beetleM" x="160" y="230" width="480" height="384"/>
+
+  <!-- リーダー線 と ラベル -->
+  <g stroke="#00897b" stroke-width="4" fill="none">
+    <line x1="598" y1="288" x2="730" y2="250"/>
+    <line x1="582" y1="357" x2="740" y2="368"/>
+    <line x1="360" y1="430" x2="150" y2="392"/>
+    <line x1="360" y1="545" x2="150" y2="600"/>
+  </g>
+  <g fill="#00897b"><circle cx="598" cy="288" r="7"/><circle cx="582" cy="357" r="7"/><circle cx="360" cy="430" r="7"/><circle cx="360" cy="545" r="7"/></g>
+
+  <g>
+    <rect x="730" y="218" width="220" height="62" rx="14" fill="#fff" stroke="#00897b" stroke-width="4"/>
+    <text x="840" y="248" text-anchor="middle" font-size="26" font-weight="bold" fill="#00695c">大きな つの</text>
+    <text x="840" y="272" text-anchor="middle" font-size="18" fill="#5a7570">おすだけ ある</text>
+
+    <rect x="740" y="340" width="210" height="56" rx="14" fill="#fff" stroke="#00897b" stroke-width="4"/>
+    <text x="845" y="376" text-anchor="middle" font-size="26" font-weight="bold" fill="#00695c">小さな つの</text>
+
+    <rect x="40" y="360" width="170" height="56" rx="14" fill="#fff" stroke="#00897b" stroke-width="4"/>
+    <text x="125" y="396" text-anchor="middle" font-size="26" font-weight="bold" fill="#00695c">はね</text>
+
+    <rect x="20" y="572" width="220" height="62" rx="14" fill="#fff" stroke="#00897b" stroke-width="4"/>
+    <text x="130" y="602" text-anchor="middle" font-size="26" font-weight="bold" fill="#00695c">あし 6本</text>
+    <text x="130" y="626" text-anchor="middle" font-size="18" fill="#5a7570">木に つかまる</text>
+  </g>
+
+  <!-- まめちしき 見出し -->
+  <rect x="120" y="668" width="760" height="50" rx="25" fill="#ffb300"/>
+  <text x="500" y="703" text-anchor="middle" font-size="30" font-weight="bold" fill="#fff">かぶとむし まめちしき</text>
+
+  <!-- まめちしき カード4つ -->
+  <g transform="translate(70,738)">
+    <rect width="200" height="210" rx="20" fill="#fff" stroke="#ffd54f" stroke-width="5"/>
+    <g transform="translate(100,46)">
+      <rect x="-36" y="-7" width="72" height="14" rx="5" fill="#a1887f"/>
+      <rect x="-48" y="-18" width="15" height="36" rx="5" fill="#6d4c41"/>
+      <rect x="33" y="-18" width="15" height="36" rx="5" fill="#6d4c41"/>
+      <rect x="-60" y="-13" width="11" height="26" rx="4" fill="#8d6e63"/>
+      <rect x="49" y="-13" width="11" height="26" rx="4" fill="#8d6e63"/>
+    </g>
+    <text x="100" y="118" text-anchor="middle" font-size="26" font-weight="bold" fill="#e08600">力もち</text>
+    <text x="100" y="156" text-anchor="middle" font-size="18" fill="#6a5a3a">体の 何十倍も</text>
+    <text x="100" y="182" text-anchor="middle" font-size="18" fill="#6a5a3a">引っぱれる</text>
+  </g>
+  <g transform="translate(295,738)">
+    <rect width="200" height="210" rx="20" fill="#fff" stroke="#90caf9" stroke-width="5"/>
+    <g transform="translate(96,46)">
+      <circle cx="0" cy="0" r="24" fill="#ffd54f"/>
+      <circle cx="9" cy="-4" r="20" fill="#fff"/>
+      <circle cx="30" cy="-16" r="3" fill="#ffb300"/>
+      <circle cx="34" cy="4" r="2.5" fill="#ffb300"/>
+      <circle cx="24" cy="22" r="2.5" fill="#ffb300"/>
+    </g>
+    <text x="100" y="118" text-anchor="middle" font-size="26" font-weight="bold" fill="#1565c0">夜に 元気</text>
+    <text x="100" y="156" text-anchor="middle" font-size="18" fill="#3a5a7a">昼は 土の中で</text>
+    <text x="100" y="182" text-anchor="middle" font-size="18" fill="#3a5a7a">休んでいる</text>
+  </g>
+  <g transform="translate(520,738)">
+    <rect width="200" height="210" rx="20" fill="#fff" stroke="#a5d6a7" stroke-width="5"/>
+    <g transform="translate(100,44)">
+      <rect x="-28" y="-14" width="56" height="46" rx="8" fill="#fff" stroke="#caa64b" stroke-width="4"/>
+      <rect x="-21" y="-2" width="42" height="32" rx="6" fill="#ffca28"/>
+      <ellipse cx="0" cy="-14" rx="28" ry="7" fill="#fff3cd" stroke="#caa64b" stroke-width="3"/>
+    </g>
+    <text x="100" y="118" text-anchor="middle" font-size="26" font-weight="bold" fill="#2e7d32">あまい もの</text>
+    <text x="100" y="156" text-anchor="middle" font-size="18" fill="#3a6a3a">木のしるや</text>
+    <text x="100" y="182" text-anchor="middle" font-size="18" fill="#3a6a3a">ゼリーが すき</text>
+  </g>
+  <g transform="translate(745,738)">
+    <rect width="200" height="210" rx="20" fill="#fff" stroke="#ce93d8" stroke-width="5"/>
+    <use href="#beetleM" x="52" y="6" width="96" height="77"/>
+    <text x="100" y="118" text-anchor="middle" font-size="26" font-weight="bold" fill="#7b1fa2">つので わかる</text>
+    <text x="100" y="156" text-anchor="middle" font-size="18" fill="#5a3a6a">つのが 大きい＝おす</text>
+    <text x="100" y="182" text-anchor="middle" font-size="18" fill="#5a3a6a">小さい＝めす</text>
+  </g>
+</svg>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>かぶとむしの そだてかた ポスター（5まい）</title>
+<style>
+  :root { --ink:#2e3d2e; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: #f2f7ec;
+    font-family: 'Hiragino Maru Gothic ProN','Yu Gothic','Meiryo',sans-serif;
+    color: var(--ink);
+  }
+  h1 { text-align: center; font-size: 28px; margin: 8px 0 4px; }
+  p.note { text-align: center; color:#5a6a55; margin: 0 0 20px; }
+  .grid {
+    display: grid; gap: 22px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    max-width: 1100px; margin: 0 auto;
+  }
+  figure {
+    margin: 0; background:#fff; border-radius: 16px; overflow:hidden;
+    box-shadow: 0 6px 18px rgba(0,0,0,.10); border: 1px solid #e0e8da;
+  }
+  figure img { display:block; width:100%; height:auto; }
+  figcaption { padding: 10px 14px; font-weight: bold; text-align:center; }
+  .toolbar { text-align:center; margin: 14px 0 24px; }
+  button {
+    font: inherit; font-weight: bold; cursor: pointer;
+    background:#2e7d32; color:#fff; border:none;
+    padding: 10px 22px; border-radius: 24px;
+  }
+  @media print {
+    body { background:#fff; padding:0; }
+    .toolbar, h1, p.note { display:none; }
+    .grid { display:block; max-width:none; }
+    figure { box-shadow:none; border:none; border-radius:0; page-break-after: always; break-after: page; }
+    figcaption { display:none; }
+  }
+</style>
+</head>
+<body>
+  <h1>🪲 かぶとむしの そだてかた ポスター（5まい）</h1>
+  <p class="note">印刷して 自由研究に つかえるよ。「印刷する」ボタンで 1まいずつ きれいに 出ます。</p>
+  <div class="toolbar"><button onclick="window.print()">🖨 印刷する</button></div>
+  <div class="grid">
+    <figure><img src="01_house.svg" alt="二階建てかぶとむしハウス"><figcaption>1. かぶとむしハウス</figcaption></figure>
+    <figure><img src="02_care.svg" alt="お世話の7つのコツ"><figcaption>2. お世話の 7つの コツ</figcaption></figure>
+    <figure><img src="03_lifecycle.svg" alt="かぶとむしの一生"><figcaption>3. かぶとむしの 一生</figcaption></figure>
+    <figure><img src="04_tips.svg" alt="元気に育てる4つのコツ"><figcaption>4. 元気に 育てる 4つの コツ</figcaption></figure>
+    <figure><img src="05_zukan.svg" alt="かぶとむし大けんきゅう"><figcaption>5. かぶとむし 大けんきゅう</figcaption></figure>
+  </div>
+</body>
+</html>

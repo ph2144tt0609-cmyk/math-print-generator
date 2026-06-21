@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" font-family="'Hiragino Maru Gothic ProN','Yu Gothic','Meiryo','Noto Sans CJK JP','Noto Sans JP',sans-serif">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef9ff"/>
+      <stop offset="1" stop-color="#f3ffe9"/>
+    </linearGradient>
+    <linearGradient id="bodyG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a5630"/><stop offset="1" stop-color="#43280f"/>
+    </linearGradient>
+    <linearGradient id="bodyG2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b3f1d"/><stop offset="1" stop-color="#3a2210"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="7" refY="7" orient="auto">
+      <path d="M2 2 L12 7 L2 12 Z" fill="#43a047"/>
+    </marker>
+    <symbol id="beetleM" viewBox="0 0 250 200">
+      <g stroke="#2e1c0e" stroke-width="7" stroke-linecap="round" fill="none">
+        <path d="M72 150 q-20 16 -42 12"/><path d="M98 160 q-10 26 -30 30"/>
+        <path d="M124 160 q2 28 -10 38"/><path d="M150 152 q20 18 40 12"/>
+        <path d="M168 142 q26 8 46 -2"/>
+      </g>
+      <ellipse cx="98" cy="112" rx="80" ry="54" fill="url(#bodyG)"/>
+      <path d="M30 112 H160" stroke="#241407" stroke-width="3" opacity="0.5"/>
+      <ellipse cx="72" cy="88" rx="30" ry="15" fill="#fff" opacity="0.18"/>
+      <ellipse cx="170" cy="100" rx="36" ry="31" fill="url(#bodyG2)"/>
+      <ellipse cx="202" cy="98" rx="21" ry="18" fill="#321e0d"/>
+      <path d="M190 92 C 208 84 216 78 220 66" stroke="#2b1a0d" stroke-width="11" stroke-linecap="round" fill="none"/>
+      <path d="M200 80 C 218 56 226 50 228 36" stroke="#2b1a0d" stroke-width="14" stroke-linecap="round" fill="none"/>
+      <path d="M228 36 L 214 16" stroke="#2b1a0d" stroke-width="9" stroke-linecap="round"/>
+      <path d="M228 36 L 244 20" stroke="#2b1a0d" stroke-width="9" stroke-linecap="round"/>
+      <circle cx="205" cy="100" r="5.5" fill="#fff"/><circle cx="206" cy="101" r="3" fill="#1a1008"/>
+    </symbol>
+  </defs>
+
+  <rect width="1000" height="1000" fill="url(#bg3)"/>
+  <g opacity="0.5" fill="#d6eebb"><circle cx="70" cy="80" r="46"/><circle cx="930" cy="930" r="56"/></g>
+
+  <!-- タイトル -->
+  <rect x="170" y="34" width="660" height="92" rx="46" fill="#6a1b9a"/>
+  <rect x="170" y="34" width="660" height="92" rx="46" fill="none" stroke="#fff" stroke-width="5"/>
+  <text x="500" y="98" text-anchor="middle" font-size="52" font-weight="bold" fill="#fff">かぶとむしの 一生</text>
+
+  <!-- まわりの 矢じるし（時計まわり） -->
+  <g fill="none" stroke="#43a047" stroke-width="10" stroke-linecap="round" marker-end="url(#arrow)">
+    <path d="M610 290 A 270 270 0 0 1 740 430"/>
+    <path d="M760 660 A 270 270 0 0 1 620 800"/>
+    <path d="M380 820 A 270 270 0 0 1 240 680"/>
+    <path d="M232 440 A 270 270 0 0 1 380 300"/>
+  </g>
+
+  <!-- 中央 -->
+  <circle cx="500" cy="560" r="118" fill="#fff" stroke="#6a1b9a" stroke-width="6"/>
+  <text x="500" y="540" text-anchor="middle" font-size="40" font-weight="bold" fill="#6a1b9a">約1年で</text>
+  <text x="500" y="592" text-anchor="middle" font-size="40" font-weight="bold" fill="#6a1b9a">大人に</text>
+  <text x="500" y="630" text-anchor="middle" font-size="28" fill="#8a6aa0">なるよ</text>
+
+  <!-- ① たまご（上） -->
+  <g transform="translate(500,290)">
+    <circle r="92" fill="#fff8e7" stroke="#e0c98a" stroke-width="5"/>
+    <g fill="#fffdf5" stroke="#d8b96a" stroke-width="3">
+      <ellipse cx="-22" cy="6" rx="16" ry="20"/><ellipse cx="16" cy="-8" rx="16" ry="20"/>
+      <ellipse cx="6" cy="28" rx="16" ry="20"/>
+    </g>
+    <rect x="-70" y="58" width="140" height="44" rx="22" fill="#7b1fa2"/>
+    <text x="0" y="89" text-anchor="middle" font-size="30" font-weight="bold" fill="#fff">たまご</text>
+  </g>
+
+  <!-- ② よう虫（右） -->
+  <g transform="translate(745,560)">
+    <circle r="92" fill="#f1fae6" stroke="#bcd99a" stroke-width="5"/>
+    <path d="M-44 18 C -54 -28 -8 -52 30 -34 C 60 -20 56 18 28 26 C 6 32 -2 14 8 0 C 16 -12 34 -10 38 2"
+          fill="none" stroke="#fdf3e0" stroke-width="34" stroke-linecap="round"/>
+    <g stroke="#e3c9a0" stroke-width="3" fill="none" opacity="0.8">
+      <path d="M-30 -8 q-6 12 4 22"/><path d="M-12 -26 q-6 12 4 22"/><path d="M8 -34 q-6 12 4 22"/>
+    </g>
+    <circle cx="40" cy="0" r="13" fill="#c98a4b"/>
+    <circle cx="44" cy="-3" r="3.5" fill="#3a2210"/>
+    <rect x="-66" y="58" width="132" height="44" rx="22" fill="#7b1fa2"/>
+    <text x="0" y="89" text-anchor="middle" font-size="30" font-weight="bold" fill="#fff">よう虫</text>
+  </g>
+
+  <!-- ③ さなぎ（下） -->
+  <g transform="translate(500,830)">
+    <circle r="92" fill="#fff1e3" stroke="#e6b98a" stroke-width="5"/>
+    <ellipse cx="0" cy="2" rx="32" ry="46" fill="#d77b3a"/>
+    <path d="M0 -36 C 14 -52 16 -64 10 -74" stroke="#a8541d" stroke-width="9" stroke-linecap="round" fill="none"/>
+    <g stroke="#a8541d" stroke-width="3" opacity="0.7">
+      <line x1="-26" y1="6" x2="26" y2="6"/><line x1="-24" y1="22" x2="24" y2="22"/><line x1="-20" y1="38" x2="20" y2="38"/>
+    </g>
+    <rect x="-66" y="58" width="132" height="44" rx="22" fill="#7b1fa2"/>
+    <text x="0" y="89" text-anchor="middle" font-size="30" font-weight="bold" fill="#fff">さなぎ</text>
+  </g>
+
+  <!-- ④ 成虫（左） -->
+  <g transform="translate(255,560)">
+    <circle r="92" fill="#eef4ff" stroke="#9ab6e0" stroke-width="5"/>
+    <use href="#beetleM" x="-78" y="-58" width="160" height="128"/>
+    <rect x="-66" y="58" width="132" height="44" rx="22" fill="#7b1fa2"/>
+    <text x="0" y="89" text-anchor="middle" font-size="30" font-weight="bold" fill="#fff">成虫</text>
+  </g>
+
+  <!-- 下 ひとこと -->
+  <rect x="150" y="952" width="700" height="0" />
+</svg>
