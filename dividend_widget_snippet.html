@@ -1,0 +1,167 @@
+<!--
+============================================================================
+  配当・恩株 見える化ウィジェット（家計簿アプリ追記用スニペット）
+  使い方：このコメント以下〜末尾までを、既存の家計簿HTMLの好きな場所に
+          まるごと貼り付けるだけ。スタイルは #ondabu-widget 配下に限定して
+          いるので既存のCSSと衝突しません。保存キーも "ondabu_stocks" で独立。
+  方式：配当累計は「税引後 年間配当 × 保有年数（購入日→今日）」で自動推定。
+============================================================================
+-->
+<section id="ondabu-widget">
+  <style>
+    #ondabu-widget{--ow-card:#1e293b;--ow-card2:#27364b;--ow-line:#334155;
+      --ow-text:#e2e8f0;--ow-muted:#94a3b8;--ow-accent:#38bdf8;--ow-gold:#fcd34d;
+      background:#0f172a;color:var(--ow-text);border-radius:16px;padding:16px;
+      font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+      line-height:1.6;margin:16px 0;}
+    #ondabu-widget *{box-sizing:border-box}
+    #ondabu-widget h2{font-size:18px;margin:0 0 2px}
+    #ondabu-widget .ow-sub{color:var(--ow-muted);font-size:12px;margin-bottom:14px}
+    #ondabu-widget .ow-kpi{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}
+    @media(min-width:720px){#ondabu-widget .ow-kpi{grid-template-columns:repeat(4,1fr)}}
+    #ondabu-widget .ow-box{background:var(--ow-card);border:1px solid var(--ow-line);
+      border-radius:12px;padding:12px}
+    #ondabu-widget .ow-box .ow-l{color:var(--ow-muted);font-size:11px}
+    #ondabu-widget .ow-box .ow-v{font-size:20px;font-weight:700;margin-top:2px}
+    #ondabu-widget .ow-box .ow-v small{font-size:12px;color:var(--ow-muted);font-weight:400}
+    #ondabu-widget .ow-form{display:grid;gap:8px;margin:12px 0;
+      grid-template-columns:repeat(2,1fr)}
+    @media(min-width:720px){#ondabu-widget .ow-form{grid-template-columns:2fr 1fr 1fr 1fr 1.2fr auto}}
+    #ondabu-widget .ow-form label{display:flex;flex-direction:column;gap:3px;
+      font-size:11px;color:var(--ow-muted)}
+    #ondabu-widget .ow-form input{background:var(--ow-card2);border:1px solid var(--ow-line);
+      color:var(--ow-text);border-radius:8px;padding:8px;font-size:14px;width:100%}
+    #ondabu-widget .ow-btn{background:var(--ow-accent);color:#06283d;border:none;
+      border-radius:8px;padding:9px 13px;font-weight:700;cursor:pointer;font-size:13px}
+    #ondabu-widget .ow-btn.ghost{background:transparent;color:var(--ow-muted);
+      border:1px solid var(--ow-line)}
+    #ondabu-widget .ow-btn.sm{padding:5px 9px;font-size:12px}
+    #ondabu-widget .ow-end{display:flex;align-items:flex-end}
+    #ondabu-widget .ow-stock{background:var(--ow-card);border:1px solid var(--ow-line);
+      border-radius:12px;padding:12px;margin-top:10px}
+    #ondabu-widget .ow-head{display:flex;justify-content:space-between;
+      align-items:baseline;gap:8px;flex-wrap:wrap}
+    #ondabu-widget .ow-name{font-size:15px;font-weight:700}
+    #ondabu-widget .ow-badge{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:700}
+    #ondabu-widget .ow-badge.done{background:rgba(252,211,77,.15);color:var(--ow-gold);
+      border:1px solid var(--ow-gold)}
+    #ondabu-widget .ow-badge.prog{background:rgba(56,189,248,.12);color:var(--ow-accent);
+      border:1px solid var(--ow-accent)}
+    #ondabu-widget .ow-metrics{display:grid;grid-template-columns:repeat(2,1fr);
+      gap:6px 12px;margin:8px 0;font-size:13px}
+    @media(min-width:720px){#ondabu-widget .ow-metrics{grid-template-columns:repeat(4,1fr)}}
+    #ondabu-widget .ow-metrics .ow-k{color:var(--ow-muted);font-size:11px}
+    #ondabu-widget .ow-metrics .ow-mv{font-weight:700}
+    #ondabu-widget .ow-bar{height:13px;background:var(--ow-card2);border-radius:999px;overflow:hidden}
+    #ondabu-widget .ow-bar>span{display:block;height:100%;border-radius:999px;
+      background:linear-gradient(90deg,#38bdf8,#34d399);transition:width .4s}
+    #ondabu-widget .ow-bar.gold>span{background:linear-gradient(90deg,#fbbf24,#fcd34d)}
+    #ondabu-widget .ow-cap{display:flex;justify-content:space-between;font-size:11px;
+      color:var(--ow-muted);margin-top:4px}
+    #ondabu-widget .ow-foot{display:flex;gap:8px;margin-top:8px}
+    #ondabu-widget .ow-empty{color:var(--ow-muted);text-align:center;padding:20px;
+      border:1px dashed var(--ow-line);border-radius:12px;margin-top:10px}
+    #ondabu-widget .ow-note{font-size:11px;color:var(--ow-muted);margin-top:6px}
+    #ondabu-widget .ow-tools{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  </style>
+
+  <h2>📈 配当・恩株 見える化</h2>
+  <div class="ow-sub">取得価格の何%を配当でもらえているか（取得利回り）と、税引後配当累計で元本を回収する「恩株」達成度。配当累計は <b>年間配当×保有年数</b> で自動推定します。</div>
+
+  <div class="ow-kpi" id="ow-kpi"></div>
+
+  <div class="ow-form" id="ow-form">
+    <label>銘柄名<input id="ow-name" placeholder="例）三菱商事"></label>
+    <label>取得単価(円)<input id="ow-price" type="number" min="0" step="0.1" placeholder="2500"></label>
+    <label>株数<input id="ow-shares" type="number" min="0" step="1" placeholder="100"></label>
+    <label>1株 年間配当<input id="ow-div" type="number" min="0" step="0.1" placeholder="100"></label>
+    <label>購入日<input id="ow-date" type="date"></label>
+    <div class="ow-end"><button class="ow-btn" id="ow-add">＋ 追加</button></div>
+  </div>
+
+  <div id="ow-list"></div>
+
+  <div class="ow-tools">
+    <button class="ow-btn ghost sm" id="ow-seed">サンプル</button>
+    <button class="ow-btn ghost sm" id="ow-clear">全消去</button>
+  </div>
+
+  <script>
+  (function(){
+    "use strict";
+    var KEY="ondabu_stocks", TAX=0.20315, DAY=864e5, $=function(id){return document.getElementById(id);};
+    function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
+    function save(d){localStorage.setItem(KEY,JSON.stringify(d));}
+    function yen(n){return Math.round(n).toLocaleString("ja-JP");}
+    function p1(n){return n.toFixed(1);}
+    function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+    function years(d){if(!d)return 0;var t=new Date(d);if(isNaN(t))return 0;return Math.max(0,(Date.now()-t.getTime())/DAY/365.25);}
+    function calc(s){
+      var cost=s.price*s.shares,gross=s.div*s.shares,net=gross*(1-TAX),
+          yoc=s.price>0?s.div/s.price*100:0,yocN=s.price>0?s.div*(1-TAX)/s.price*100:0,
+          y=years(s.date),cum=net*y,prog=cost>0?cum/cost*100:0,
+          rem=net>0?Math.max(0,(cost-cum)/net):Infinity;
+      return{cost:cost,gross:gross,net:net,yoc:yoc,yocN:yocN,y:y,cum:cum,prog:prog,rem:rem};
+    }
+    function box(l,v){return '<div class="ow-box"><div class="ow-l">'+l+'</div><div class="ow-v">'+v+'</div></div>';}
+    function m(k,v){return '<div><div class="ow-k">'+k+'</div><div class="ow-mv">'+v+'</div></div>';}
+
+    function render(){
+      var d=load(),tc=0,tn=0,tg=0,tcum=0;
+      d.forEach(function(s){var c=calc(s);tc+=c.cost;tn+=c.net;tg+=c.gross;tcum+=c.cum;});
+      var done=d.filter(function(s){return calc(s).prog>=100;}).length;
+      $("ow-kpi").innerHTML=
+        box("取得総額",yen(tc)+'<small> 円</small>')+
+        box("取得利回り(税引前)",(tc>0?p1(tg/tc*100):"0.0")+'<small> %</small>')+
+        box("配当累計(税引後)",yen(tcum)+'<small> 円</small>')+
+        box("恩株 達成度/達成数",(tc>0?p1(tcum/tc*100):"0.0")+'<small> % / '+done+"件</small>");
+
+      var L=$("ow-list");
+      if(!d.length){L.innerHTML='<div class="ow-empty">まだ銘柄がありません。フォームから追加するか「サンプル」を押してください。</div>';return;}
+      L.innerHTML=d.map(function(s,i){
+        var c=calc(s),dn=c.prog>=100,w=Math.min(100,c.prog),
+            rem=c.rem===Infinity?"—":dn?"達成済":c.rem.toFixed(1)+" 年";
+        return '<div class="ow-stock">'+
+          '<div class="ow-head"><div class="ow-name">'+esc(s.name||"(無名)")+'</div>'+
+            '<div class="ow-badge '+(dn?"done":"prog")+'">'+(dn?"🎉 恩株達成":"保有中")+'</div></div>'+
+          '<div class="ow-metrics">'+
+            m("取得単価×株数",yen(s.price)+"円 × "+yen(s.shares)+"株")+
+            m("取得総額",yen(c.cost)+" 円")+
+            m("取得利回り(前/後)",p1(c.yoc)+"% / "+p1(c.yocN)+"%")+
+            m("税引後 年間配当",yen(c.net)+" 円")+
+            m("保有年数",c.y.toFixed(1)+" 年")+
+            m("配当累計(税引後)",yen(c.cum)+" 円")+
+            m("恩株まで残り",rem)+
+            m("恩株達成度",p1(c.prog)+" %")+
+          '</div>'+
+          '<div class="ow-bar '+(dn?"gold":"")+'"><span style="width:'+w+'%"></span></div>'+
+          '<div class="ow-cap"><span>0%</span><span>恩株 '+p1(c.prog)+'%</span><span>100% 元本回収</span></div>'+
+          '<div class="ow-foot"><button class="ow-btn ghost sm" data-edit="'+i+'">編集</button>'+
+            '<button class="ow-btn ghost sm" data-del="'+i+'">削除</button></div>'+
+        '</div>';
+      }).join("");
+    }
+
+    function readForm(){return{name:$("ow-name").value.trim(),price:parseFloat($("ow-price").value)||0,
+      shares:parseFloat($("ow-shares").value)||0,div:parseFloat($("ow-div").value)||0,date:$("ow-date").value||""};}
+    function clr(){["ow-name","ow-price","ow-shares","ow-div","ow-date"].forEach(function(id){$(id).value="";});}
+
+    $("ow-add").onclick=function(){var s=readForm();
+      if(!s.name||s.price<=0||s.shares<=0){alert("銘柄名・取得単価・株数は必須です。");return;}
+      var d=load();d.push(s);save(d);clr();render();};
+    $("ow-list").onclick=function(e){var del=e.target.getAttribute("data-del"),ed=e.target.getAttribute("data-edit"),d=load();
+      if(del!==null){if(confirm("削除しますか？")){d.splice(+del,1);save(d);render();}}
+      if(ed!==null){var s=d[+ed];$("ow-name").value=s.name;$("ow-price").value=s.price;$("ow-shares").value=s.shares;
+        $("ow-div").value=s.div;$("ow-date").value=s.date;d.splice(+ed,1);save(d);render();
+        $("ow-widget")&&$("ow-widget").scrollIntoView({behavior:"smooth"});}};
+    $("ow-seed").onclick=function(){save([
+      {name:"三菱商事",price:2500,shares:100,div:100,date:"2021-06-01"},
+      {name:"NTT",price:130,shares:1000,div:5.2,date:"2023-04-01"},
+      {name:"花王",price:6000,shares:100,div:150,date:"2010-01-01"}]);render();};
+    $("ow-clear").onclick=function(){if(confirm("全データを消去しますか？")){save([]);render();}};
+
+    render();
+  })();
+  </script>
+</section>
+<!-- ============ 配当・恩株ウィジェット ここまで ============ -->
