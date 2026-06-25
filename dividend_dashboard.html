@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>配当・恩株 見える化ダッシュボード</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --card2:#27364b; --line:#334155;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --good:#34d399;
+    --warn:#fbbf24; --bad:#f87171; --gold:#fcd34d;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    background:var(--bg); color:var(--text); padding:16px; line-height:1.6;
+  }
+  h1{font-size:20px; margin:0 0 4px}
+  .sub{color:var(--muted); font-size:13px; margin-bottom:16px}
+  .grid{display:grid; gap:12px}
+  @media(min-width:720px){ .grid.kpi{grid-template-columns:repeat(4,1fr)} }
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px}
+  .kpi .card .label{color:var(--muted); font-size:12px}
+  .kpi .card .value{font-size:22px; font-weight:700; margin-top:2px}
+  .kpi .card .value small{font-size:13px; color:var(--muted); font-weight:400}
+
+  /* 入力フォーム */
+  .form{display:grid; gap:10px; margin-top:10px}
+  @media(min-width:720px){ .form{grid-template-columns:repeat(6,1fr)} }
+  .form label{display:flex; flex-direction:column; font-size:12px; color:var(--muted); gap:4px}
+  .form input{
+    background:var(--card2); border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:8px; font-size:14px; width:100%;
+  }
+  .btn{
+    background:var(--accent); color:#06283d; border:none; border-radius:8px;
+    padding:10px 14px; font-weight:700; cursor:pointer; font-size:14px;
+  }
+  .btn.ghost{background:transparent; color:var(--muted); border:1px solid var(--line)}
+  .btn.sm{padding:6px 10px; font-size:12px}
+  .row-actions{display:flex; gap:8px; align-items:flex-end}
+
+  /* 銘柄カード */
+  .stock{margin-top:12px}
+  .stock-head{display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap}
+  .stock-name{font-size:16px; font-weight:700}
+  .badge{font-size:11px; padding:2px 8px; border-radius:999px; font-weight:700}
+  .badge.done{background:rgba(252,211,77,.15); color:var(--gold); border:1px solid var(--gold)}
+  .badge.prog{background:rgba(56,189,248,.12); color:var(--accent); border:1px solid var(--accent)}
+  .metrics{display:grid; grid-template-columns:repeat(2,1fr); gap:6px 14px; margin:10px 0; font-size:13px}
+  @media(min-width:720px){ .metrics{grid-template-columns:repeat(4,1fr)} }
+  .metrics .m .k{color:var(--muted); font-size:11px}
+  .metrics .m .v{font-weight:700}
+
+  /* 進捗バー */
+  .bar{height:14px; background:var(--card2); border-radius:999px; overflow:hidden; position:relative}
+  .bar > span{display:block; height:100%; border-radius:999px;
+    background:linear-gradient(90deg,#38bdf8,#34d399); transition:width .4s}
+  .bar.gold > span{background:linear-gradient(90deg,#fbbf24,#fcd34d)}
+  .bar-cap{display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-top:4px}
+
+  .stock-foot{display:flex; gap:8px; margin-top:10px}
+  .empty{color:var(--muted); text-align:center; padding:24px; border:1px dashed var(--line); border-radius:12px}
+  .note{font-size:11px; color:var(--muted); margin-top:6px}
+  details{margin-top:18px} summary{cursor:pointer; color:var(--muted); font-size:13px}
+  .toolbar{display:flex; gap:8px; margin:10px 0 0; flex-wrap:wrap}
+</style>
+</head>
+<body>
+  <h1>📈 配当・恩株 見える化</h1>
+  <div class="sub">取得価格の何%を配当でもらえているか（取得利回り）と、配当累計で元本を回収する「恩株」達成度を可視化します。配当累計は <b>税引後（手取り 約20.315%控除）× 保有年数</b> で自動概算します。</div>
+
+  <!-- KPIサマリー -->
+  <div class="grid kpi" id="kpi"></div>
+
+  <!-- 入力フォーム -->
+  <div class="card" style="margin-top:12px">
+    <div style="font-weight:700">銘柄を追加</div>
+    <div class="form" id="form">
+      <label>銘柄名<input id="f-name" placeholder="例）三菱商事"></label>
+      <label>取得単価(円)<input id="f-price" type="number" min="0" step="0.1" placeholder="2500"></label>
+      <label>株数<input id="f-shares" type="number" min="0" step="1" placeholder="100"></label>
+      <label>1株 年間配当(円)<input id="f-div" type="number" min="0" step="0.1" placeholder="100"></label>
+      <label>購入日<input id="f-date" type="date"></label>
+      <div class="row-actions"><button class="btn" id="add">＋ 追加</button></div>
+    </div>
+    <div class="note">※「1株 年間配当」は税引前（額面）の予想/実績の年額。保有年数は購入日から今日まで自動計算します。</div>
+  </div>
+
+  <!-- 銘柄一覧 -->
+  <div id="list"></div>
+
+  <div class="toolbar">
+    <button class="btn ghost sm" id="seed">サンプルを入れる</button>
+    <button class="btn ghost sm" id="export">JSONエクスポート</button>
+    <button class="btn ghost sm" id="import">JSONインポート</button>
+    <button class="btn ghost sm" id="clear">全消去</button>
+  </div>
+
+  <details>
+    <summary>計算ロジックと家計簿への組み込み方</summary>
+    <div class="note" style="line-height:1.8">
+      ・取得総額 = 取得単価 × 株数<br>
+      ・取得利回り(税引前) = 1株年間配当 ÷ 取得単価 …「買った株価の何%を毎年もらえているか」<br>
+      ・税引後年間配当 = 1株年間配当 × 株数 × (1 − 0.20315)<br>
+      ・配当累計(概算) = 税引後年間配当 × 保有年数(購入日→今日)<br>
+      ・<b>恩株達成度 = 配当累計 ÷ 取得総額</b>（100%で元本回収＝恩株）<br>
+      ・恩株まで残り = (取得総額 − 配当累計) ÷ 税引後年間配当<br><br>
+      データは <code>localStorage("ondabu_stocks")</code> に保存。既存の家計簿アプリへは、この
+      <code>&lt;div id="kpi"&gt;</code> 〜銘柄一覧と <code>&lt;script&gt;</code> を1セクションとして移植すれば組み込めます。
+    </div>
+  </details>
+
+  <textarea id="io" style="display:none"></textarea>
+
+<script>
+(function(){
+  "use strict";
+  var KEY = "ondabu_stocks";
+  var TAX = 0.20315;          // 配当課税（所得税15.315%+住民税5%）
+  var DAY = 1000*60*60*24;
+
+  function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||[] }catch(e){ return [] } }
+  function save(d){ localStorage.setItem(KEY, JSON.stringify(d)); }
+  function yen(n){ return Math.round(n).toLocaleString("ja-JP"); }
+  function pct(n){ return (n).toFixed(1); }
+
+  function yearsHeld(dateStr){
+    if(!dateStr) return 0;
+    var d = new Date(dateStr); if(isNaN(d)) return 0;
+    var diff = (Date.now() - d.getTime())/DAY/365.25;
+    return Math.max(0, diff);
+  }
+
+  // 1銘柄の計算
+  function calc(s){
+    var cost = s.price * s.shares;                       // 取得総額
+    var grossYearly = s.div * s.shares;                  // 年間配当(税引前)
+    var netYearly = grossYearly * (1 - TAX);             // 年間配当(税引後)
+    var yoc = s.price>0 ? (s.div / s.price) * 100 : 0;   // 取得利回り(税引前)
+    var yocNet = s.price>0 ? (s.div*(1-TAX)/s.price)*100 : 0; // 取得利回り(税引後)
+    var years = yearsHeld(s.date);
+    var cumNet = netYearly * years;                      // 配当累計(税引後概算)
+    var progress = cost>0 ? (cumNet / cost) * 100 : 0;   // 恩株達成度
+    var remainYears = netYearly>0 ? Math.max(0,(cost - cumNet)/netYearly) : Infinity;
+    return {cost,grossYearly,netYearly,yoc,yocNet,years,cumNet,progress,remainYears};
+  }
+
+  function render(){
+    var data = load();
+    var list = document.getElementById("list");
+    var kpi = document.getElementById("kpi");
+
+    // KPI集計
+    var tCost=0,tNet=0,tGross=0,tCum=0;
+    data.forEach(function(s){ var c=calc(s); tCost+=c.cost; tNet+=c.netYearly; tGross+=c.grossYearly; tCum+=c.cumNet; });
+    var portYoc = tCost>0 ? (tGross/tCost*100) : 0;
+    var portProg = tCost>0 ? (tCum/tCost*100) : 0;
+    var doneCount = data.filter(function(s){ return calc(s).progress>=100; }).length;
+
+    kpi.innerHTML =
+      kpiCard("取得総額", yen(tCost)+'<small> 円</small>') +
+      kpiCard("取得利回り(税引前)", pct(portYoc)+'<small> %</small>') +
+      kpiCard("配当累計(税引後概算)", yen(tCum)+'<small> 円</small>') +
+      kpiCard("恩株 達成度 / 達成数", pct(portProg)+'<small> % / '+doneCount+"件</small>");
+
+    if(data.length===0){
+      list.innerHTML = '<div class="empty stock">まだ銘柄がありません。上のフォームから追加するか「サンプルを入れる」を押してください。</div>';
+      return;
+    }
+
+    list.innerHTML = data.map(function(s,i){
+      var c = calc(s);
+      var done = c.progress>=100;
+      var w = Math.min(100, c.progress);
+      var remain = c.remainYears===Infinity ? "—" :
+                   done ? "達成済" : c.remainYears.toFixed(1)+" 年";
+      return ''+
+      '<div class="card stock">'+
+        '<div class="stock-head">'+
+          '<div class="stock-name">'+esc(s.name||"(無名)")+'</div>'+
+          '<div class="badge '+(done?'done':'prog')+'">'+(done?'🎉 恩株達成':'保有中')+'</div>'+
+        '</div>'+
+        '<div class="metrics">'+
+          metric("取得単価×株数", yen(s.price)+"円 × "+yen(s.shares)+"株") +
+          metric("取得総額", yen(c.cost)+" 円") +
+          metric("取得利回り(税引前/後)", pct(c.yoc)+"% / "+pct(c.yocNet)+"%") +
+          metric("税引後 年間配当", yen(c.netYearly)+" 円") +
+          metric("保有年数", c.years.toFixed(1)+" 年") +
+          metric("配当累計(税引後)", yen(c.cumNet)+" 円") +
+          metric("恩株まで残り", remain) +
+          metric("恩株達成度", pct(c.progress)+" %") +
+        '</div>'+
+        '<div class="bar '+(done?'gold':'')+'"><span style="width:'+w+'%"></span></div>'+
+        '<div class="bar-cap"><span>0%</span><span>恩株 '+pct(c.progress)+'%</span><span>100% (元本回収)</span></div>'+
+        '<div class="stock-foot">'+
+          '<button class="btn ghost sm" data-edit="'+i+'">編集</button>'+
+          '<button class="btn ghost sm" data-del="'+i+'">削除</button>'+
+        '</div>'+
+      '</div>';
+    }).join("");
+  }
+
+  function kpiCard(label,val){ return '<div class="card"><div class="label">'+label+'</div><div class="value">'+val+'</div></div>'; }
+  function metric(k,v){ return '<div class="m"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>'; }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+
+  function readForm(){
+    return {
+      name: document.getElementById("f-name").value.trim(),
+      price: parseFloat(document.getElementById("f-price").value)||0,
+      shares: parseFloat(document.getElementById("f-shares").value)||0,
+      div: parseFloat(document.getElementById("f-div").value)||0,
+      date: document.getElementById("f-date").value||""
+    };
+  }
+  function clearForm(){ ["f-name","f-price","f-shares","f-div","f-date"].forEach(function(id){document.getElementById(id).value="";}); }
+
+  document.getElementById("add").onclick=function(){
+    var s=readForm();
+    if(!s.name || s.price<=0 || s.shares<=0){ alert("銘柄名・取得単価・株数は必須です。"); return; }
+    var data=load(); data.push(s); save(data); clearForm(); render();
+  };
+
+  document.getElementById("list").onclick=function(e){
+    var del=e.target.getAttribute("data-del"), ed=e.target.getAttribute("data-edit");
+    var data=load();
+    if(del!==null){ if(confirm("削除しますか？")){ data.splice(+del,1); save(data); render(); } }
+    if(ed!==null){
+      var s=data[+ed];
+      document.getElementById("f-name").value=s.name;
+      document.getElementById("f-price").value=s.price;
+      document.getElementById("f-shares").value=s.shares;
+      document.getElementById("f-div").value=s.div;
+      document.getElementById("f-date").value=s.date;
+      data.splice(+ed,1); save(data); render();
+      window.scrollTo({top:0,behavior:"smooth"});
+    }
+  };
+
+  document.getElementById("seed").onclick=function(){
+    save([
+      {name:"三菱商事", price:2500, shares:100, div:100, date:"2021-06-01"},
+      {name:"NTT", price:130, shares:1000, div:5.2, date:"2023-04-01"},
+      {name:"花王", price:6000, shares:100, div:150, date:"2010-01-01"}
+    ]); render();
+  };
+  document.getElementById("clear").onclick=function(){ if(confirm("全データを消去しますか？")){ save([]); render(); } };
+
+  document.getElementById("export").onclick=function(){
+    var io=document.getElementById("io"); io.style.display="block";
+    io.value=JSON.stringify(load(),null,2); io.select();
+  };
+  document.getElementById("import").onclick=function(){
+    var io=document.getElementById("io"); io.style.display="block";
+    if(io.value.trim()){
+      try{ var d=JSON.parse(io.value); if(Array.isArray(d)){ save(d); render(); alert("インポートしました"); } }
+      catch(e){ alert("JSONの形式が正しくありません"); }
+    } else { alert("テキスト欄にJSONを貼り付けてから、もう一度押してください。"); io.focus(); }
+  };
+
+  render();
+})();
+</script>
+</body>
+</html>
