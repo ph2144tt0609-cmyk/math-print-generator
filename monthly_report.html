@@ -14,8 +14,16 @@
   h1{font-size:22px;margin:0 0 2px}
   h2{font-size:15px;margin:22px 0 8px;color:var(--muted);border-left:3px solid var(--accent);padding-left:8px}
   .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
-  .drop{display:grid;gap:10px;grid-template-columns:repeat(3,1fr);margin-bottom:14px}
-  @media(max-width:760px){.drop{grid-template-columns:1fr}}
+  .dropzone{border:2px dashed var(--line);border-radius:14px;padding:22px 16px;text-align:center;
+    margin-bottom:14px;background:var(--card);transition:.15s}
+  .dropzone.over{border-color:var(--accent);background:#15233a}
+  .dz-big{font-size:16px;font-weight:700;color:var(--text)}
+  .dz-sub{font-size:12px;color:var(--muted);margin-top:6px}
+  .dz-pick{color:var(--accent);text-decoration:underline;cursor:pointer}
+  .dz-list{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px}
+  .chip{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card2)}
+  .chip.ok{border-color:var(--green);color:var(--green)}
+  .chip.warn{border-color:var(--red);color:var(--red)}
   .filebox{background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:11px}
   .filebox.ok{border-color:var(--green);border-style:solid}
   .filebox h3{margin:0 0 3px;font-size:13px}.filebox p{margin:0;font-size:11px;color:var(--muted)}
@@ -50,23 +58,31 @@
 <body>
 <div class="wrap">
   <h1>📊 月次マネーレポート <span class="muted" id="ym-title"></span></h1>
-  <div class="sub">毎月、SBIの「保有証券一覧」「配当履歴」CSVを読み込み、家計の収入・支出を入力して「今月を記録」を押すだけ。資産・恩株達成度・配当・収支の推移が自動で積み上がります（データはブラウザ内に保存）。</div>
+  <div class="sub">毎月初に、先月ダウンロードしたCSV（SBIの保有証券・配当履歴、マネーフォワードの収支など）を<b>まとめてここにドロップするだけ</b>。種類を自動判別し、<b>先月のレポートを自動生成・自動記録</b>します。推移はブラウザ内に積み上がります。</div>
 
-  <div class="drop no-print">
-    <div class="filebox" id="fb-hold"><h3>① 保有証券一覧 CSV</h3><p>株式・投信の評価額／取得額</p>
-      <input type="file" id="f-hold" accept=".csv"></div>
-    <div class="filebox" id="fb-div"><h3>② 配当金・分配金 履歴 CSV</h3><p>受取配当(税引後・全期間)</p>
-      <input type="file" id="f-div" accept=".csv"></div>
-    <div class="filebox" id="fb-mf"><h3>③ マネーフォワード 収支CSV（任意）</h3><p>「収入・支出詳細」CSVで月別収支を自動入力</p>
-      <input type="file" id="f-mf" accept=".csv"></div>
+  <div id="dropzone" class="dropzone no-print">
+    <div class="dz-big">⬇ ここに今月DLしたCSVをまとめてドロップ</div>
+    <div class="dz-sub">または <label class="dz-pick">ファイルを選ぶ<input type="file" id="f-multi" accept=".csv" multiple hidden></label>　／　保有証券一覧・配当履歴(DISTRIBUTION)・マネーフォワード収支 などをまとめて可</div>
+    <div id="filelist" class="dz-list"></div>
   </div>
 
-  <div id="dash"><div class="empty">①②のCSVを読み込んでください。</div></div>
+  <div id="dash"><div class="empty">CSVをドロップすると、先月のレポートが自動で作成されます。</div></div>
 </div>
 
 <script>
 "use strict";
-var SNAPKEY="mmr_snapshots", DATA={hold:null,div:null,mf:null};
+var SNAPKEY="mmr_snapshots", DATA={hold:null,div:null,mf:null,files:[]}, targetYM=null;
+function prevMonthYM(){var d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");}
+function detectType(rows){
+  if(rows.some(function(r){return r.length>=2&&r[0]=="受渡日"&&r[1]=="口座";}))return "div";
+  var head=rows.slice(0,8).map(function(r){return r.join("|");}).join("\n");
+  if(/保有証券一覧|株式（特定預り|株式（NISA/.test(head))return "hold";
+  if(rows.some(function(r){return r.indexOf("日付")>=0&&r.some(function(c){return /金額/.test(c);})&&(r.indexOf("大項目")>=0||r.indexOf("振替")>=0);}))return "mf";
+  if(rows.some(function(r){return r[0]=="約定日";}))return "trade";
+  return "unknown";
+}
+function kindLabel(k){return {hold:"保有証券一覧",div:"配当履歴",mf:"MF収支",trade:"約定履歴(未使用)",unknown:"判別不可"}[k]||k;}
 function decode(b){return new TextDecoder("shift_jis").decode(b);}
 function parseCSV(t){var R=[],r=[],c="",q=false,i,ch;for(i=0;i<t.length;i++){ch=t[i];
   if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}
@@ -165,14 +181,14 @@ function lineChart(pts,opt){ // pts:[{label,v}]
     '<path d="'+d+'" fill="none" stroke="'+(opt.color||"#38bdf8")+'" stroke-width="2"/>'+dots+'</svg>';
 }
 
-function curMetrics(){
+function curMetrics(yr){
+  yr=yr||new Date().getFullYear();
   var H=DATA.hold,D=DATA.div;
   var sc=0,sv=0,lifeHeld=0,ttmHeld=0,heldSum=0,heldCnt=0;
   H.stocks.forEach(function(s){sc+=s.cost;sv+=s.val;lifeHeld+=(D?D.life[s.code]||0:0);
     ttmHeld+=(D?D.ttm[s.code]||0:0);
     var hy=D?yearsSince(D.first[s.code]):null;if(hy!=null){heldSum+=hy;heldCnt++;}});
   var fc=0,fv=0;H.funds.forEach(function(f){fc+=f.cost;fv+=f.val;});
-  var yr=new Date().getFullYear();
   var divY=D&&D.byYear[yr]?(D.byYear[yr].dom+D.byYear[yr].us):0;
   return {stockCost:sc,stockVal:sv,fundCost:fc,fundVal:fv,asset:sv+fv,
     lifeHeld:lifeHeld,onkabu:sc?lifeHeld/sc*100:0,divYTD:divY,lifeDiv:D?D.all:0,unreal:(sv-sc)+(fv-fc),
@@ -182,11 +198,13 @@ function curMetrics(){
 function ymNow(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");}
 
 function render(){
+  renderFileList();
   var dash=document.getElementById("dash");
-  if(!DATA.hold||!DATA.div){dash.innerHTML='<div class="empty">①②両方のCSVを読み込んでください。'+
-    (DATA.hold?'（②配当履歴が未読込）':'')+(DATA.div?'（①保有証券が未読込）':'')+'</div>';return;}
-  var M=curMetrics(),D=DATA.div;
-  document.getElementById("ym-title").textContent="／ "+ymNow();
+  if(!DATA.hold||!DATA.div){dash.innerHTML='<div class="empty">CSVをドロップすると先月レポートを自動作成します。'+
+    (DATA.files.length?'（'+(DATA.hold?'':'保有証券一覧 ')+(DATA.div?'':'配当履歴 ')+'が不足）':'')+'</div>';return;}
+  if(!targetYM)targetYM=prevMonthYM();
+  var ym=targetYM,D=DATA.div,M=curMetrics(parseInt(ym));
+  document.getElementById("ym-title").textContent="／ "+ym+" 分";
 
   // KPIs
   var kpi='<div class="kpi">'+
@@ -216,20 +234,21 @@ function render(){
     (dmk.length?barChart(divM,{h:170}):'<div class="muted">—</div>')+
     '<div class="muted"><span style="color:#38bdf8">■</span>国内株 <span style="color:#818cf8">■</span>米国株</div></div>';
 
-  // 家計入力（MF自動入力対応）
-  var sn=snaps(),ym=ymNow(),cur=sn[ym]||{};
+  // 家計入力（MF自動入力対応・対象月=先月）
+  var sn=snaps(),cur=sn[ym]||{};
   var mfm=DATA.mf&&DATA.mf.byMonth[ym];
   var incV=cur.income!=null?cur.income:(mfm?Math.round(mfm.income):"");
   var expV=cur.expense!=null?cur.expense:(mfm?Math.round(mfm.expense):"");
-  var mfNote=DATA.mf?'<div class="muted" style="margin-top:6px;color:var(--green)">✓ マネーフォワード取込済み（'+Object.keys(DATA.mf.byMonth).length+'ヶ月分・明細'+DATA.mf.count+'件）。各月の収支を自動入力します（振替・計算対象外は除外）。</div>':'';
-  var budget='<div class="panel"><h2 style="margin-top:0">今月の家計（'+ym+'）</h2>'+
+  var autoNote=cur.auto?'<div class="muted" style="margin-top:6px;color:var(--green)">✓ '+ym+' を自動記録しました（CSV読込時）。数値を直したら「再記録」を押してください。</div>':'';
+  var mfNote=DATA.mf?'<div class="muted" style="margin-top:4px;color:var(--green)">✓ マネーフォワード取込済み（'+Object.keys(DATA.mf.byMonth).length+'ヶ月分・明細'+DATA.mf.count+'件、振替/対象外は除外）</div>':'<div class="muted" style="margin-top:4px">MF収支CSVをドロップすると収入・支出を自動入力します（未取込なら手入力）</div>';
+  var budget='<div class="panel"><h2 style="margin-top:0">対象月の家計（'+ym+'）</h2>'+
     '<div class="form no-print">'+
-      '<label>対象月<input type="month" id="i-ym" value="'+ym+'"></label>'+
+      '<label>対象月（既定=先月）<input type="month" id="i-ym" value="'+ym+'"></label>'+
       '<label>収入(円)<input type="number" id="i-inc" value="'+incV+'" placeholder="例 450000"></label>'+
       '<label>支出(円)<input type="number" id="i-exp" value="'+expV+'" placeholder="例 280000"></label>'+
-      '<button class="btn" id="b-save">今月を記録</button>'+
+      '<button class="btn" id="b-save">再記録</button>'+
       '<button class="btn ghost" id="b-del">この月を削除</button>'+
-    '</div>'+mfNote+
+    '</div>'+autoNote+mfNote+
     '<div id="budget-sum" class="muted" style="margin-top:8px"></div></div>';
 
   // 推移チャート
@@ -271,10 +290,11 @@ function render(){
   updateBudgetSum();
   document.getElementById("b-save").onclick=function(){
     var ymv=document.getElementById("i-ym").value||ym;
-    var s=snaps();var m=curMetrics();
-    s[ymv]={asset:m.asset,stockVal:m.stockVal,stockCost:m.stockCost,onkabu:m.onkabu,
-      divYTD:m.divYTD,lifeDiv:m.lifeDiv,unreal:m.unreal,
-      income:n(document.getElementById("i-inc").value),expense:n(document.getElementById("i-exp").value)};
+    var s=snaps();var m=curMetrics(parseInt(ymv));
+    s[ymv]={asset:m.asset,stockVal:m.stockVal,stockCost:m.stockCost,fundVal:m.fundVal,onkabu:m.onkabu,
+      divYTD:m.divYTD,divMonth:(D.byMonth[ymv]?D.byMonth[ymv].dom+D.byMonth[ymv].us:0),
+      lifeDiv:m.lifeDiv,unreal:m.unreal,remYears:m.remYears===Infinity?null:m.remYears,
+      income:n(document.getElementById("i-inc").value),expense:n(document.getElementById("i-exp").value),auto:false};
     saveSnaps(s);render();
   };
   document.getElementById("b-del").onclick=function(){
@@ -282,9 +302,7 @@ function render(){
     if(s[ymv]&&confirm(ymv+" の記録を削除しますか？")){delete s[ymv];saveSnaps(s);render();}
   };
   ["i-inc","i-exp"].forEach(function(id){document.getElementById(id).oninput=updateBudgetSum;});
-  document.getElementById("i-ym").onchange=function(){var v=this.value,s=snaps()[v]||{},mm=DATA.mf&&DATA.mf.byMonth[v];
-    document.getElementById("i-inc").value=s.income!=null?s.income:(mm?Math.round(mm.income):"");
-    document.getElementById("i-exp").value=s.expense!=null?s.expense:(mm?Math.round(mm.expense):"");updateBudgetSum();};
+  document.getElementById("i-ym").onchange=function(){targetYM=this.value;render();};
 }
 function updateBudgetSum(){
   var inc=n((document.getElementById("i-inc")||{}).value),exp=n((document.getElementById("i-exp")||{}).value);
@@ -296,18 +314,63 @@ function updateBudgetSum(){
 function m(k,v){return '<div><div class="k">'+k+'</div><div class="mv">'+v+'</div></div>';}
 function box(l,v){return '<div class="box"><div class="l">'+l+'</div><div class="v">'+v+'</div></div>';}
 
-function hook(id,bx,kind){document.getElementById(id).addEventListener("change",function(e){
-  var f=e.target.files[0];if(!f)return;var rd=new FileReader();
-  rd.onload=function(){var buf=rd.result,txt=decode(buf);
-    if(txt.indexOf("日付")<0&&txt.indexOf("受渡")<0&&txt.indexOf("銘柄")<0){try{txt=new TextDecoder("utf-8").decode(buf);}catch(e){}}
-    var rows=parseCSV(txt);
-    if(kind=="hold")DATA.hold=parseHoldings(rows);
-    else if(kind=="div")DATA.div=parseDiv(rows);
-    else DATA.mf=parseMF(rows);
-    document.getElementById(bx).classList.add("ok");render();};
-  rd.readAsArrayBuffer(f);});}
-hook("f-hold","fb-hold","hold");hook("f-div","fb-div","div");hook("f-mf","fb-mf","mf");
-if(Object.keys(snaps()).length)render();
+function readText(buf){
+  var txt=new TextDecoder("shift_jis").decode(buf);
+  // 文字化け(置換文字多数)ならUTF-8で再デコード
+  var bad=(txt.match(/�/g)||[]).length;
+  if(bad>3||(txt.indexOf("日付")<0&&txt.indexOf("受渡")<0&&txt.indexOf("保有")<0&&txt.indexOf("約定")<0&&txt.indexOf("計算対象")<0)){
+    try{var u=new TextDecoder("utf-8").decode(buf);
+      if((u.match(/�/g)||[]).length<bad||/日付|受渡|保有|約定|計算対象/.test(u))txt=u;}catch(e){}}
+  return txt;
+}
+function handleFiles(fileList){
+  var arr=Array.prototype.slice.call(fileList).filter(function(f){return /\.csv$/i.test(f.name);});
+  if(!arr.length)return;var done=0;
+  arr.forEach(function(f){var rd=new FileReader();
+    rd.onload=function(){var rows=parseCSV(readText(rd.result)),kind=detectType(rows);
+      if(kind=="hold")DATA.hold=parseHoldings(rows);
+      else if(kind=="div")DATA.div=parseDiv(rows);
+      else if(kind=="mf")DATA.mf=parseMF(rows);
+      DATA.files=DATA.files.filter(function(x){return x.name!==f.name;});
+      DATA.files.push({name:f.name,kind:kind});
+      if(++done===arr.length)afterLoad();};
+    rd.readAsArrayBuffer(f);});
+}
+function afterLoad(){
+  if(!targetYM)targetYM=prevMonthYM();
+  // 月初に先月レポートを自動生成・自動記録
+  if(DATA.hold&&DATA.div){autoRecord(targetYM);}
+  render();
+}
+function autoRecord(ym){
+  var s=snaps(),m=curMetrics(parseInt(ym));
+  var mfm=DATA.mf&&DATA.mf.byMonth[ym], prev=s[ym]||{};
+  s[ym]={asset:m.asset,stockVal:m.stockVal,stockCost:m.stockCost,fundVal:m.fundVal,onkabu:m.onkabu,
+    divYTD:m.divYTD,divMonth:(DATA.div.byMonth[ym]?DATA.div.byMonth[ym].dom+DATA.div.byMonth[ym].us:0),
+    lifeDiv:m.lifeDiv,unreal:m.unreal,remYears:m.remYears===Infinity?null:m.remYears,
+    income:mfm?Math.round(mfm.income):(prev.income||0),
+    expense:mfm?Math.round(mfm.expense):(prev.expense||0),auto:true};
+  saveSnaps(s);
+}
+function renderFileList(){
+  var el=document.getElementById("filelist");if(!el)return;
+  el.innerHTML=DATA.files.map(function(f){
+    var cls=f.kind=="unknown"?"warn":"ok";
+    return '<span class="chip '+cls+'">'+(f.kind=="unknown"?"⚠ ":"✓ ")+esc(kindLabel(f.kind))+'：'+esc(f.name)+'</span>';
+  }).join("")+(DATA.files.length?'<button class="btn ghost" style="font-size:12px;padding:4px 10px" id="b-clearfiles">クリア</button>':'');
+  var cb=document.getElementById("b-clearfiles");
+  if(cb)cb.onclick=function(){DATA={hold:null,div:null,mf:null,files:[]};render();};
+}
+function initDrop(){
+  var dz=document.getElementById("dropzone"),inp=document.getElementById("f-multi");
+  if(!dz)return;
+  inp.addEventListener("change",function(e){handleFiles(e.target.files);e.target.value="";});
+  ["dragenter","dragover"].forEach(function(ev){dz.addEventListener(ev,function(e){e.preventDefault();dz.classList.add("over");});});
+  ["dragleave","drop"].forEach(function(ev){dz.addEventListener(ev,function(e){e.preventDefault();dz.classList.remove("over");});});
+  dz.addEventListener("drop",function(e){if(e.dataTransfer&&e.dataTransfer.files)handleFiles(e.dataTransfer.files);});
+}
+initDrop();
+if(Object.keys(snaps()).length){targetYM=prevMonthYM();render();}
 </script>
 </body>
 </html>
