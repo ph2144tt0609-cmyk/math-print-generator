@@ -197,9 +197,10 @@ ONK_COST = 7_186_538            # 取得額(簿価) 夫婦日本株＋SPYD
 ONK_DIV = 598_905              # 生涯 受取配当(税引後・保有銘柄)
 ONK_PCT = ONK_DIV / ONK_COST * 100   # 恩株達成度（約8.3%）
 ONK_REM_Y = 27                # 現配当維持での残り年数(概算)
+ONK_TTM = 246_904             # 年間配当ペース（直近1年・税引後）
 ONK_LIFE_TOTAL = 763_777       # 受取配当 生涯累計(国内＋米国・売却分含む)
 ONK_BY_YEAR = [(2022, 12_956), (2023, 134_392), (2024, 251_449), (2025, 242_525), (2026, 122_456)]
-# 銘柄別 恩株（上位）：(銘柄, 所有者, 口座, 取得単価, 株数, 取得額, 配当累計, 恩株%)
+# 銘柄別 恩株（上位12）：(銘柄, 所有者, 口座, 取得単価, 株数, 取得額, 配当累計, 恩株%)
 ONK_RANK = [
     ("商船三井", "亨", "特定", 3294, 50, 164_700, 31_081, 18.9),
     ("郵船", "亨", "特定", 3141, 50, 157_050, 27_695, 17.6),
@@ -207,13 +208,23 @@ ONK_RANK = [
     ("第一ライフグループ", "亨", "特定", 719, 400, 287_600, 35_494, 12.3),
     ("武田薬", "亨", "NISA", 4132, 100, 413_200, 48_590, 11.8),
     ("アステラス薬", "亨", "NISA", 1605, 100, 160_500, 15_899, 9.9),
-    ("NTT", "亨", "NISA", 151, 500, 75_500, 7_283, 9.6),
+    ("ＮＴＴ", "亨", "NISA", 151, 500, 75_500, 7_283, 9.6),
     ("東京海上", "亨", "特定", 3938, 100, 393_800, 37_944, 9.6),
     ("丸紅", "亨", "NISA", 2613, 100, 261_300, 25_129, 9.6),
+    ("伯東", "亨", "NISA", 5080, 100, 508_000, 47_674, 9.4),
+    ("三菱商事", "亨", "特定", 2700, 100, 270_000, 18_412, 6.8),
+    ("伊藤忠", "亨", "特定", 1139, 500, 569_500, 36_499, 6.4),
 ]
+ONK_MORE = "ほか9銘柄：ヤマハ発5.8%・住友商3.5%・三菱UFJ/三菱重工1.5%・倉元/DCM/ファンペップは無配または新規"
+ONK_ACCT = [  # (口座, 取得額, 恩株%, 直近1年配当)
+    ("特定口座(国内)", 2_364_570, 8.3, 80_136),
+    ("NISA口座(国内)", 3_149_900, 6.1, 82_300),
+    ("SPYD(米国ETF)", 1_672_068, 12.6, 84_468),
+]
+ONK_NEAR = "郵船 残り約14年 ／ 第一ライフ 約14.5年 ／ 商船三井 約16.8年"
 
 c = canvas.Canvas(OUT, pagesize=A4)
-c.setTitle("資産管理台帳 分析レポート 2026-06-26 v18（P3に「高配当株の恩株」ページを新設＝配当による元本回収の見える化・夫婦合算＋SPYD。以降のページとフッターを6ページ構成に振り直し）")
+c.setTitle("資産管理台帳 分析レポート 2026-06-26 v18（P3に高配当株の恩株ページを新設＝配当による元本回収を全保有銘柄・口座別・ハイライトで可視化。夫婦合算＋SPYD。6ページ構成に振り直し）")
 
 
 # ============================================================ 共通関数
@@ -602,61 +613,65 @@ text(ML, 28, "投資の見える化 ②  高配当株の恩株", 14, "JPB", WHIT
 text(W - MR, 28, "配当だけで取得元本をどれだけ取り戻したか", 8, "JP", HexColor("#C8D2E4"), "r")
 
 _man = lambda v: f"{int(round(v / 10000)):,}万"
-y0 = 66
+y0 = 64
 text(ML, y0, "■ 高配当株の恩株（配当による元本回収・夫婦合算＋SPYD）", 10.5, "JPB", NAVY)
-text(ML, y0 + 14, "日本株 夫婦20銘柄＋SPYD（米国高配当ETF）／配当は税引後。恩株達成度＝生涯受取配当÷取得額。", 7.4, "JP", SUB)
+text(ML, y0 + 13, "日本株 夫婦20銘柄＋SPYD（米国高配当ETF）／配当は税引後。恩株達成度＝生涯受取配当÷取得額。100%で配当だけで元本回収＝恩株。", 7.2, "JP", SUB)
 onk_kpis = [
     ("取得額（簿価）", _man(ONK_COST) + "円", "日本株＋SPYD", DARK),
     ("生涯 受取配当(税引後)", f"{ONK_DIV:,}円", "保有銘柄から累計", TEAL),
     ("恩株 達成度", f"{ONK_PCT:.1f}%", "配当÷取得額", GOLD),
-    ("恩株まで残り", f"{ONK_REM_Y}年", "現配当維持の試算", BLUE),
+    ("年間配当ペース", f"{ONK_TTM:,}円", "直近1年・税引後", BLUE),
 ]
 kw = (CW - 30) / 4
-kt = y0 + 22
+kt = y0 + 20
 for i, (label, big, small, col) in enumerate(onk_kpis):
     x = ML + i * (kw + 10)
-    box(x, kt, kw, 52, LGRAY)
+    box(x, kt, kw, 50, LGRAY)
     c.setFillColor(col)
-    c.rect(x, Y(kt + 52), 3, 52, fill=1, stroke=0)
-    text(x + 9, kt + 14, label, 7, "JP", SUB)
-    text(x + 9, kt + 32, big, 12.5, "JPB", col)
-    text(x + 9, kt + 45, small, 6.3, "JP", SUB)
+    c.rect(x, Y(kt + 50), 3, 50, fill=1, stroke=0)
+    text(x + 9, kt + 13, label, 7, "JP", SUB)
+    text(x + 9, kt + 31, big, 12.5, "JPB", col)
+    text(x + 9, kt + 44, small, 6.3, "JP", SUB)
 
-rt = kt + 70
-text(ML, rt, "■ 銘柄別 恩株達成度ランキング（上位・夫=亨／妻=美香）", 10, "JPB", NAVY)
-rt += 6
+rt = kt + 62
+text(ML, rt, "■ 銘柄別 恩株達成度ランキング（上位12・夫=亨／妻=美香）", 10, "JPB", NAVY)
+rt += 4
 rmax = 100.0
-barx = ML + 222
-barw = CW - 222 - 52
-rh = 22
+barx = ML + 224
+barw = CW - 224 - 50
+rh = 19
 text(barx, rt + 5, "0%", 6, "JP", GRAY)
 text(barx + barw, rt + 5, "100%（恩株達成）", 6, "JP", GRAY, "r")
 rt += 8
 for i, (nm, owner, acct, avg, sh, cost, life, prog) in enumerate(ONK_RANK):
     yy = rt + i * rh
-    text(ML, yy + 9, nm[:11], 8, "JP", TXT)
-    text(barx - 6, yy + 9, f"{owner}·{acct}", 6, "JP", GRAY, "r")
-    text(ML, yy + 18, f"取得 {avg:,}円/株×{sh:,}株={cost:,}円 ／ 配当累計 {life:,}円", 6, "JP", SUB)
-    by = yy + 5
+    text(ML, yy + 8, nm[:13], 8, "JP", TXT)
+    text(barx - 6, yy + 8, f"{owner}·{acct}", 6, "JP", GRAY, "r")
+    text(ML, yy + 16.5, f"取得 {avg:,}円/株×{sh:,}株={cost:,}円 ／ 配当累計 {life:,}円", 6, "JP", SUB)
+    by = yy + 4
     c.setFillColor(MGRAY)
-    c.rect(barx, Y(by + 11), barw, 11, fill=1, stroke=0)
+    c.rect(barx, Y(by + 10), barw, 10, fill=1, stroke=0)
     for k in range(1, 4):
         gx = barx + barw * k / 4
         c.setStrokeColor(WHITE)
         c.setLineWidth(0.7)
-        c.line(gx, Y(by + 11), gx, Y(by))
+        c.line(gx, Y(by + 10), gx, Y(by))
     col = GOLD if prog >= 15 else TEAL
     c.setFillColor(col)
-    c.rect(barx, Y(by + 11), barw * min(prog, rmax) / rmax, 11, fill=1, stroke=0)
-    text(barx + barw + 4, yy + 10, f"{prog:.1f}%", 7.5, "JPB", col, "r")
+    c.rect(barx, Y(by + 10), barw * min(prog, rmax) / rmax, 10, fill=1, stroke=0)
+    text(barx + barw + 4, yy + 9, f"{prog:.1f}%", 7.5, "JPB", col, "r")
+mt = rt + len(ONK_RANK) * rh + 9
+text(ML, mt, ONK_MORE, 6.5, "JP", SUB)
 
-gt = rt + len(ONK_RANK) * rh + 12
+# 受取配当の推移（年別）
+gt = mt + 16
 text(ML, gt, "■ 受取配当(税引後)の推移 ― 増配で恩株が加速", 10, "JPB", NAVY)
+text(W - MR, gt, f"生涯累計 {ONK_LIFE_TOTAL:,}円（国内＋米国・税引後）", 6.5, "JP", SUB, "r")
 gt += 8
 gymax = max(v for _, v in ONK_BY_YEAR)
 slot = CW / len(ONK_BY_YEAR)
-bw = 34
-gh = 66
+bw = 30
+gh = 52
 for i, (yk, v) in enumerate(ONK_BY_YEAR):
     cxb = ML + slot * (i + 0.5)
     hh = gh * v / gymax
@@ -664,14 +679,36 @@ for i, (yk, v) in enumerate(ONK_BY_YEAR):
     c.rect(cxb - bw / 2, Y(gt + gh), bw, hh, fill=1, stroke=0)
     text(cxb, gt + gh - hh - 3, _man(v), 7, "JPB", NAVY, "c")
     text(cxb, gt + gh + 10, str(yk), 6.5, "JP", SUB, "c")
-text(ML, gt + gh + 22, f"生涯累計 {ONK_LIFE_TOTAL:,}円（国内＋米国・税引後／夫婦合算）", 6.5, "JP", SUB)
 
-nt = gt + gh + 30
-box(ML, nt, CW, 42, AMBERBG)
+# 口座別サマリー（3カラム）
+at = gt + gh + 24
+text(ML, at, "■ 口座別の恩株", 10, "JPB", NAVY)
+at += 6
+aw = (CW - 20) / 3
+for i, (lab, cost, pct, ttm) in enumerate(ONK_ACCT):
+    x = ML + i * (aw + 10)
+    box(x, at, aw, 50, LGRAY)
+    c.setFillColor(TEAL if i == 0 else (BLUE if i == 1 else PURPLE))
+    c.rect(x, Y(at + 50), 3, 50, fill=1, stroke=0)
+    text(x + 9, at + 13, lab, 7.5, "JPB", DARK)
+    text(x + 9, at + 30, f"恩株 {pct:.1f}%", 12, "JPB", NAVY)
+    text(x + 9, at + 43, f"取得 {cost:,}円・年配当 {ttm:,}円", 6.3, "JP", SUB)
+
+# ハイライト
+ht0 = at + 62
+box(ML, ht0, CW, 40, TEALBG)
+c.setFillColor(TEAL)
+c.rect(ML, Y(ht0 + 40), 3, 40, fill=1, stroke=0)
+text(ML + 12, ht0 + 15, f"ハイライト：恩株達成が近いのは {ONK_NEAR}。年間 約{ONK_TTM:,}円(税引後)のペースで回収中。", 7.6, "JPB", DARK)
+text(ML + 12, ht0 + 30, f"高配当株の取得元本 {_man(ONK_COST)}円のうち {ONK_PCT:.1f}%（{ONK_DIV:,}円）を配当だけで回収済み。増配が続けば残り約{ONK_REM_Y}年で全額回収＝恩株化。", 7.6, "JP", TXT)
+
+# 注記
+nt = ht0 + 50
+box(ML, nt, CW, 40, AMBERBG)
 c.setFillColor(AMBER)
-c.rect(ML, Y(nt + 42), 3, 42, fill=1, stroke=0)
-text(ML + 12, nt + 15, "※対象：日本株（夫婦合算）＋SPYD（米国高配当ETF・312株）。台帳P1「高配当株 9,361,519円」＝日本株＋SPYDの範囲とほぼ整合。", 6.9, "JP", TXT)
-text(ML + 12, nt + 27, "　SPYD：取得1,672,068円／生涯配当210,933円（税引後）＝恩株12.6%。SPCX・ボーイングは無配の成長株のため恩株には含めません。", 6.9, "JPB", AMBER)
+c.rect(ML, Y(nt + 40), 3, 40, fill=1, stroke=0)
+text(ML + 12, nt + 14, "※対象：日本株（夫婦合算）＋SPYD（米国高配当ETF・312株）。台帳P1「高配当株 9,361,519円」＝日本株＋SPYDの範囲とほぼ整合。", 6.8, "JP", TXT)
+text(ML + 12, nt + 26, "　SPYD：取得1,672,068円／生涯配当210,933円（税引後）＝恩株12.6%。SPCX・ボーイングは無配の成長株のため恩株には含めません。", 6.8, "JPB", AMBER)
 
 text(W / 2, 826, "－ 3 / 6 －", 8, "JP", GRAY, "c")
 c.showPage()
