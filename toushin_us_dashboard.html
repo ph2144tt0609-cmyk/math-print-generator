@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>投資信託・米国株ダッシュボード</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--card2:#27364b;--line:#334155;
+    --text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--gold:#fcd34d;--green:#34d399;--red:#f87171;--blue:#818cf8}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);line-height:1.6;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif}
+  .wrap{max-width:1140px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;margin:0 0 4px}
+  h2{font-size:16px;margin:24px 0 6px;display:flex;align-items:center;gap:8px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .drop{display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-bottom:16px}
+  @media(max-width:640px){.drop{grid-template-columns:1fr}}
+  .filebox{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:14px}
+  .filebox.ok{border-color:var(--green);border-style:solid}
+  .filebox h3{margin:0 0 4px;font-size:14px}.filebox p{margin:0 0 8px;font-size:12px;color:var(--muted)}
+  input[type=file]{font-size:12px;color:var(--muted);width:100%}
+  .kpi{display:grid;gap:10px;grid-template-columns:repeat(2,1fr);margin:8px 0 6px}
+  @media(min-width:760px){.kpi{grid-template-columns:repeat(4,1fr)}}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .box .l{color:var(--muted);font-size:11px}.box .v{font-size:20px;font-weight:700;margin-top:2px}
+  .box .v small{font-size:12px;color:var(--muted);font-weight:400}
+  .pos{color:var(--green)}.neg{color:var(--red)}
+  .item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;margin-top:10px}
+  .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .name{font-size:15px;font-weight:700}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:700;margin-left:4px}
+  .badge.nisa{background:rgba(52,211,153,.12);color:var(--green);border:1px solid var(--green)}
+  .badge.us{background:rgba(129,140,248,.14);color:var(--blue);border:1px solid var(--blue)}
+  .badge.re{background:rgba(148,163,184,.12);color:var(--muted);border:1px solid var(--line)}
+  .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 14px;margin:9px 0;font-size:13px}
+  @media(min-width:760px){.metrics{grid-template-columns:repeat(4,1fr)}}
+  .metrics .k{color:var(--muted);font-size:11px}.metrics .mv{font-weight:700}
+  .bar{height:14px;background:var(--card2);border-radius:999px;overflow:hidden}
+  .bar>span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#38bdf8,#34d399)}
+  .cap{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
+  .empty{color:var(--muted);text-align:center;padding:40px 20px;border:1px dashed var(--line);border-radius:12px;margin-top:10px}
+  .note{font-size:12px;color:var(--muted);margin-top:10px}
+  details{margin-top:18px;font-size:12px;color:var(--muted)}summary{cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🌍 投資信託・米国株ダッシュボード</h1>
+  <div class="sub">恩株ダッシュボードの別枠。同じ2つのCSV（保有証券一覧 ／ 配当金・分配金履歴）を読み込むと、投資信託の評価損益と、米国株・ETFの受取配当(税引後)を表示します。投信は再投資型のため「恩株」ではなく含み損益で評価します。</div>
+
+  <div class="drop">
+    <div class="filebox" id="fb-hold"><h3>① 保有証券一覧 CSV</h3>
+      <p>投資信託の取得金額・評価額・損益</p><input type="file" id="f-hold" accept=".csv"></div>
+    <div class="filebox" id="fb-div"><h3>② 配当金・分配金 履歴 CSV</h3>
+      <p>米国株・ETFの受取配当(税引後)</p><input type="file" id="f-div" accept=".csv"></div>
+  </div>
+
+  <div id="dash"><div class="empty">2つのCSVを読み込んでください。</div></div>
+
+  <details><summary>計算方法と注意点</summary>
+    <ul>
+      <li><b>投資信託</b>：保有証券CSVの取得金額・評価額から含み損益・損益率を表示。オルカン/SBI・V・S&P500は分配金「再投資」型のため現金配当はゼロ（その分は評価額に反映済み）。</li>
+      <li><b>米国株 配当</b>：配当履歴CSVの「米国株式」行を銘柄(ティッカー)ごとに合算(税引後・円)。同一ETFで名称表記が複数あるものはティッカーで統合。</li>
+      <li>米国株の現在の保有株数・取得額は保有証券CSV(国内)に含まれないため、取得額に対する回収率(恩株)は未算出です。米国の保有証券CSVがあれば追加できます。</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+"use strict";
+var DATA={hold:null,div:null};
+function decode(b){return new TextDecoder("shift_jis").decode(b);}
+function parseCSV(text){var rows=[],row=[],cur="",q=false,i,c;
+  for(i=0;i<text.length;i++){c=text[i];
+    if(q){if(c=='"'){if(text[i+1]=='"'){cur+='"';i++}else q=false}else cur+=c}
+    else{if(c=='"')q=true;else if(c==','){row.push(cur);cur=""}
+      else if(c=='\n'){row.push(cur);rows.push(row);row=[];cur=""}
+      else if(c=='\r'){}else cur+=c}}
+  if(cur!==""||row.length){row.push(cur);rows.push(row)}return rows;}
+function n(s){return parseFloat(String(s).replace(/[+,\s]/g,""))||0;}
+function yen(v){return Math.round(v).toLocaleString("ja-JP");}
+function p1(v){return (Math.round(v*10)/10).toFixed(1);}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function sign(v){return (v>=0?"+":"")+yen(v);}
+
+function parseToushin(rows){
+  var out=[],inT=false,sec="";
+  rows.forEach(function(r){
+    var line=r.join(",");
+    var isHeader=r.filter(function(x){return x;}).length<=1;  // 区分見出しは単一セル行のみ
+    if(isHeader&&/投資信託/.test(line)&&!/合計/.test(line)){inT=true;sec=r[0].replace(/投資信託（金額\/?/, "").replace(/）$/,"");}
+    else if(isHeader&&/株式（/.test(line))inT=false;
+    if(inT&&r[0]&&r[0]!=="ファンド名"&&/口/.test(r[1]||"")&&n(r[5])>0){
+      out.push({name:r[0].trim(),qty:r[1].trim(),cost:n(r[5]),val:n(r[6]),pl:n(r[7]),
+        method:(r[8]||"").trim(),sec:sec});
+    }
+  });
+  return out;
+}
+function parseUS(rows){
+  var hi=rows.findIndex(function(r){return r.length>=2&&r[0]=="受渡日"&&r[1]=="口座";});
+  var us={},maxk=0,recs=[];
+  for(var i=hi+1;i<rows.length;i++){var r=rows[i];
+    if(r.length<6||!r[0]||!/米国/.test(r[2]))continue;
+    var nm=r[3].replace(/\s*\/.*$/,"").trim();
+    var tk=(nm.match(/([A-Za-z]+)$/)||[,nm])[1];
+    var p=r[0].split("/"),k=(+p[0])*10000+(+p[1])*100+(+p[2]);
+    recs.push({tk:tk,nm:nm,k:k,v:n(r[5])});if(k>maxk)maxk=k;
+  }
+  var cut=(Math.floor(maxk/10000)-1)*10000+(maxk%10000);
+  recs.forEach(function(x){var u=us[x.tk]||(us[x.tk]={tk:x.tk,nm:x.nm,life:0,ttm:0,cnt:0});
+    u.life+=x.v;u.cnt++;if(x.k>=cut)u.ttm+=x.v;});
+  return Object.keys(us).map(function(k){return us[k];}).sort(function(a,b){return b.life-a.life;});
+}
+
+function render(){
+  var dash=document.getElementById("dash");
+  if(!DATA.hold&&!DATA.div){dash.innerHTML='<div class="empty">①②のCSVを読み込んでください。</div>';return;}
+  var T=DATA.hold||[],US=DATA.div||[];
+  var tCost=0,tVal=0,tUS=0,tUStm=0;
+  T.forEach(function(f){tCost+=f.cost;tVal+=f.val;});
+  US.forEach(function(u){tUS+=u.life;tUStm+=u.ttm;});
+  var pl=tVal-tCost;
+
+  var html='<div class="kpi">'+
+    box("投信 取得額",yen(tCost)+'<small> 円</small>')+
+    box("投信 評価額",yen(tVal)+'<small> 円</small>')+
+    box("投信 含み損益",'<span class="'+(pl>=0?"pos":"neg")+'">'+sign(pl)+'</span><small> 円</small>')+
+    box("米国株 配当累計",yen(tUS)+'<small> 円(税引後)</small>')+
+  '</div>';
+
+  if(T.length){html+='<h2>📦 投資信託（再投資型）</h2>';
+    html+=T.map(function(f){
+      var rate=f.cost?f.pl/f.cost*100:0,w=Math.min(100,Math.max(0,rate));
+      return '<div class="item"><div class="head"><div class="name">'+esc(f.name)+
+        '</div><div><span class="badge nisa">'+esc(f.sec)+'</span><span class="badge re">'+esc(f.method||"再投資")+'</span></div></div>'+
+        '<div class="metrics">'+
+          m("保有口数",esc(f.qty))+
+          m("取得金額",yen(f.cost)+" 円")+
+          m("評価額",yen(f.val)+" 円")+
+          m("含み損益",'<span class="'+(f.pl>=0?"pos":"neg")+'">'+sign(f.pl)+" 円</span>")+
+        '</div>'+
+        '<div class="bar"><span style="width:'+w+'%"></span></div>'+
+        '<div class="cap"><span>取得</span><span>損益率 '+(rate>=0?"+":"")+p1(rate)+'%</span><span>+100%で2倍</span></div></div>';
+    }).join("");
+  }
+
+  if(US.length){html+='<h2>🇺🇸 米国株・ETF 配当（税引後）</h2>';
+    html+=US.map(function(u){
+      return '<div class="item"><div class="head"><div class="name">'+esc(u.nm)+
+        '</div><span class="badge us">'+esc(u.tk)+'</span></div>'+
+        '<div class="metrics">'+
+          m("配当累計(税引後)",yen(u.life)+" 円")+
+          m("直近1年",yen(u.ttm)+" 円")+
+          m("受取回数",u.cnt+" 回")+
+          m("1回平均",yen(u.life/u.cnt)+" 円")+
+        '</div></div>';
+    }).join("");
+    html+='<div class="note">米国株は配当受取の実績のみ表示しています（現在の保有株数・取得額が国内の保有証券CSVに無いため、取得額に対する回収率は未算出）。米国の保有証券CSVをいただければ恩株達成度も出せます。</div>';
+  }
+  dash.innerHTML=html;
+}
+function m(k,v){return '<div><div class="k">'+k+'</div><div class="mv">'+v+'</div></div>';}
+function box(l,v){return '<div class="box"><div class="l">'+l+'</div><div class="v">'+v+'</div></div>';}
+
+function hook(id,bx,kind){document.getElementById(id).addEventListener("change",function(e){
+  var f=e.target.files[0];if(!f)return;var rd=new FileReader();
+  rd.onload=function(){var rows=parseCSV(decode(rd.result));
+    if(kind=="hold")DATA.hold=parseToushin(rows);else DATA.div=parseUS(rows);
+    document.getElementById(bx).classList.add("ok");render();};
+  rd.readAsArrayBuffer(f);});}
+hook("f-hold","fb-hold","hold");hook("f-div","fb-div","div");
+</script>
+</body>
+</html>
