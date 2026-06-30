@@ -14,8 +14,8 @@
   h1{font-size:22px;margin:0 0 2px}
   h2{font-size:15px;margin:22px 0 8px;color:var(--muted);border-left:3px solid var(--accent);padding-left:8px}
   .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
-  .drop{display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-bottom:14px}
-  @media(max-width:640px){.drop{grid-template-columns:1fr}}
+  .drop{display:grid;gap:10px;grid-template-columns:repeat(3,1fr);margin-bottom:14px}
+  @media(max-width:760px){.drop{grid-template-columns:1fr}}
   .filebox{background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:11px}
   .filebox.ok{border-color:var(--green);border-style:solid}
   .filebox h3{margin:0 0 3px;font-size:13px}.filebox p{margin:0;font-size:11px;color:var(--muted)}
@@ -57,6 +57,8 @@
       <input type="file" id="f-hold" accept=".csv"></div>
     <div class="filebox" id="fb-div"><h3>② 配当金・分配金 履歴 CSV</h3><p>受取配当(税引後・全期間)</p>
       <input type="file" id="f-div" accept=".csv"></div>
+    <div class="filebox" id="fb-mf"><h3>③ マネーフォワード 収支CSV（任意）</h3><p>「収入・支出詳細」CSVで月別収支を自動入力</p>
+      <input type="file" id="f-mf" accept=".csv"></div>
   </div>
 
   <div id="dash"><div class="empty">①②のCSVを読み込んでください。</div></div>
@@ -64,7 +66,7 @@
 
 <script>
 "use strict";
-var SNAPKEY="mmr_snapshots", DATA={hold:null,div:null};
+var SNAPKEY="mmr_snapshots", DATA={hold:null,div:null,mf:null};
 function decode(b){return new TextDecoder("shift_jis").decode(b);}
 function parseCSV(t){var R=[],r=[],c="",q=false,i,ch;for(i=0;i<t.length;i++){ch=t[i];
   if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}
@@ -94,19 +96,39 @@ function parseHoldings(rows){
 }
 function parseDiv(rows){
   var hi=rows.findIndex(function(r){return r.length>=2&&r[0]=="受渡日"&&r[1]=="口座";});
-  var life={},byYear={},all=0,ttm={},first={},recs=[],maxk=0;
+  var life={},byYear={},byMonth={},all=0,ttm={},first={},recs=[],maxk=0;
   for(var i=hi+1;i<rows.length;i++){var r=rows[i];
     if(r.length<6||!r[0])continue;
     var p=r[0].split("/"),y=+p[0],k=y*10000+(+p[1])*100+(+p[2]);
     var v=n(r[5]),cat=/信用/.test(r[2])?"cr":/米国/.test(r[2])?"us":"dom";
     byYear[y]=byYear[y]||{dom:0,us:0,cr:0};byYear[y][cat]+=v;all+=v;
-    if(cat!="cr"){var m=(r[3]||"").match(/(\d{4})$/);if(m){life[m[1]]=(life[m[1]]||0)+v;
-      recs.push({code:m[1],k:k,v:v});if(k>maxk)maxk=k;
-      if(!first[m[1]]||k<first[m[1]])first[m[1]]=k;}}
+    if(cat!="cr"){
+      var ym=p[0]+"-"+String(p[1]).padStart(2,"0");
+      byMonth[ym]=byMonth[ym]||{dom:0,us:0};byMonth[ym][cat]+=v;
+      var m=(r[3]||"").match(/(\d{4})$/);if(m){life[m[1]]=(life[m[1]]||0)+v;
+        recs.push({code:m[1],k:k,v:v});if(k>maxk)maxk=k;
+        if(!first[m[1]]||k<first[m[1]])first[m[1]]=k;}}
   }
   var cut=(Math.floor(maxk/10000)-1)*10000+(maxk%10000);
   recs.forEach(function(x){if(x.k>=cut)ttm[x.code]=(ttm[x.code]||0)+x.v;});
-  return {life:life,byYear:byYear,all:all,ttm:ttm,first:first};
+  return {life:life,byYear:byYear,byMonth:byMonth,all:all,ttm:ttm,first:first};
+}
+function parseMF(rows){
+  var hi=-1;
+  for(var i=0;i<rows.length;i++){if(rows[i].indexOf("日付")>=0&&rows[i].some(function(c){return /金額/.test(c);})){hi=i;break;}}
+  if(hi<0)return null;
+  var H=rows[hi],di=H.indexOf("日付"),ai=H.findIndex(function(c){return /金額/.test(c);}),
+      ki=H.indexOf("計算対象"),fi=H.indexOf("振替");
+  var byMonth={},cnt=0;
+  for(var j=hi+1;j<rows.length;j++){var r=rows[j];if(!r[di])continue;
+    if(ki>=0&&String(r[ki]).trim()==="0")continue;
+    if(fi>=0&&String(r[fi]).trim()==="1")continue;
+    var dt=r[di].replace(/-/g,"/").split("/");if(dt.length<2)continue;
+    var ym=dt[0]+"-"+String(parseInt(dt[1])).padStart(2,"0"),amt=n(r[ai]);
+    var b=byMonth[ym]||(byMonth[ym]={income:0,expense:0});
+    if(amt>=0)b.income+=amt;else b.expense+=-amt;cnt++;
+  }
+  return {byMonth:byMonth,count:cnt};
 }
 function yearsSince(k){if(!k)return null;var y=Math.floor(k/10000),mo=Math.floor(k/100)%100,d=k%100;
   return (Date.now()-new Date(y,mo-1,d).getTime())/(365.25*864e5);}
@@ -123,7 +145,7 @@ function barChart(data,opt){ // data:[{label,segs:[{v,color}],total}]
     d.segs.forEach(function(s){var h=(H-46)*(s.v/max);y-=h;
       g+='<rect x="'+(x-bw/2)+'" y="'+y+'" width="'+bw+'" height="'+Math.max(0,h)+'" fill="'+s.color+'" rx="2"/>';});
     g+='<text x="'+x+'" y="'+(H-6)+'" fill="#94a3b8" font-size="11" text-anchor="middle">'+esc(d.label)+'</text>';
-    g+='<text x="'+x+'" y="'+(y-4)+'" fill="#e2e8f0" font-size="11" text-anchor="middle" font-weight="700">'+man(d.total)+'</text>';
+    g+='<text x="'+x+'" y="'+(y-4)+'" fill="#e2e8f0" font-size="11" text-anchor="middle" font-weight="700">'+(d.top!=null?d.top:man(d.total))+'</text>';
   });
   return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'">'+g+'</svg>';
 }
@@ -186,30 +208,50 @@ function render(){
     barChart(bars,{h:190})+
     '<div class="muted"><span style="color:#38bdf8">■</span>国内株 <span style="color:#818cf8">■</span>米国株／生涯合計 '+yen(D.all)+'円</div></div>';
 
-  // 家計入力
+  // 月別 受取配当の推移（国内+米国 合算・直近12ヶ月）
+  var dmk=Object.keys(D.byMonth).sort().slice(-12);
+  var divM=dmk.map(function(k){var b=D.byMonth[k];return {label:k.slice(2),total:b.dom+b.us,
+    segs:[{v:b.dom,color:"#38bdf8"},{v:b.us,color:"#818cf8"}]};});
+  var divMonthChart='<div class="panel"><h2 style="margin-top:0">月別 受取配当の推移（直近12ヶ月・万円）</h2>'+
+    (dmk.length?barChart(divM,{h:170}):'<div class="muted">—</div>')+
+    '<div class="muted"><span style="color:#38bdf8">■</span>国内株 <span style="color:#818cf8">■</span>米国株</div></div>';
+
+  // 家計入力（MF自動入力対応）
   var sn=snaps(),ym=ymNow(),cur=sn[ym]||{};
+  var mfm=DATA.mf&&DATA.mf.byMonth[ym];
+  var incV=cur.income!=null?cur.income:(mfm?Math.round(mfm.income):"");
+  var expV=cur.expense!=null?cur.expense:(mfm?Math.round(mfm.expense):"");
+  var mfNote=DATA.mf?'<div class="muted" style="margin-top:6px;color:var(--green)">✓ マネーフォワード取込済み（'+Object.keys(DATA.mf.byMonth).length+'ヶ月分・明細'+DATA.mf.count+'件）。各月の収支を自動入力します（振替・計算対象外は除外）。</div>':'';
   var budget='<div class="panel"><h2 style="margin-top:0">今月の家計（'+ym+'）</h2>'+
     '<div class="form no-print">'+
       '<label>対象月<input type="month" id="i-ym" value="'+ym+'"></label>'+
-      '<label>収入(円)<input type="number" id="i-inc" value="'+(cur.income||"")+'" placeholder="例 450000"></label>'+
-      '<label>支出(円)<input type="number" id="i-exp" value="'+(cur.expense||"")+'" placeholder="例 280000"></label>'+
+      '<label>収入(円)<input type="number" id="i-inc" value="'+incV+'" placeholder="例 450000"></label>'+
+      '<label>支出(円)<input type="number" id="i-exp" value="'+expV+'" placeholder="例 280000"></label>'+
       '<button class="btn" id="b-save">今月を記録</button>'+
       '<button class="btn ghost" id="b-del">この月を削除</button>'+
-    '</div>'+
+    '</div>'+mfNote+
     '<div id="budget-sum" class="muted" style="margin-top:8px"></div></div>';
 
-  // 推移チャート（snapshots）
+  // 推移チャート
   var keys=Object.keys(sn).sort();
   var assetPts=keys.map(function(k){return {label:k.slice(2),v:sn[k].asset||0};});
   var onkPts=keys.map(function(k){return {label:k.slice(2),v:sn[k].onkabu||0};});
-  var balPts=keys.map(function(k){return {label:k.slice(2),total:Math.max(0,(sn[k].income||0)-(sn[k].expense||0)),
-    segs:[{v:Math.max(0,(sn[k].income||0)-(sn[k].expense||0)),color:"#34d399"}]};});
+  // 月次収支：MFがあれば全月、無ければ記録から
+  var balData;
+  if(DATA.mf){balData=Object.keys(DATA.mf.byMonth).sort().slice(-12).map(function(k){
+    var b=DATA.mf.byMonth[k],bal=b.income-b.expense;
+    return {label:k.slice(2),total:Math.abs(bal),top:(bal>=0?"+":"−")+man(Math.abs(bal)),
+      segs:[{v:Math.abs(bal),color:bal>=0?"#34d399":"#f87171"}]};});}
+  else{balData=keys.map(function(k){var bal=(sn[k].income||0)-(sn[k].expense||0);
+    return {label:k.slice(2),total:Math.abs(bal),top:(bal>=0?"+":"−")+man(Math.abs(bal)),
+      segs:[{v:Math.abs(bal),color:bal>=0?"#34d399":"#f87171"}]};});}
+  var hasBal=balData.length>0;
   var trends='<div class="row2">'+
     '<div class="panel"><h2 style="margin-top:0">恩株 達成度の推移（%）</h2>'+lineChart(onkPts,{color:"#fcd34d",fmt:function(v){return p1(v);}})+'</div>'+
-    '<div class="panel"><h2 style="margin-top:0">リスク資産の推移（万円）</h2>'+lineChart(assetPts.map(function(p){return{label:p.label,v:p.v/10000};}),{color:"#38bdf8",fmt:function(v){return Math.round(v);}})+'</div>'+
+    '<div class="panel"><h2 style="margin-top:0">リスク資産の推移（株+投信・万円）</h2>'+lineChart(assetPts.map(function(p){return{label:p.label,v:p.v/10000};}),{color:"#38bdf8",fmt:function(v){return Math.round(v);}})+'</div>'+
   '</div>'+
-  '<div class="panel"><h2 style="margin-top:0">月次 収支の推移（万円）</h2>'+
-    (keys.length?barChart(balPts,{h:160}):'<div class="muted">家計を記録すると表示されます。</div>')+'</div>';
+  '<div class="panel"><h2 style="margin-top:0">月次 収支の推移（万円）'+(DATA.mf?'<span class="muted" style="font-weight:400">／MFより</span>':'')+'</h2>'+
+    (hasBal?barChart(balData,{h:160}):'<div class="muted">家計を記録（またはMF取込）すると表示されます。</div>')+'</div>';
 
   // 記録テーブル
   var tbl='';
@@ -221,9 +263,10 @@ function render(){
         '</td><td class="'+(bal>=0?"pos":"neg")+'">'+(s.income||s.expense?sign(bal):"–")+'</td></tr>';
     }).join("")+'</table></div>';}
 
+  var brk='<div class="muted" style="margin:-4px 0 6px">内訳：株式 '+yen(M.stockVal)+'円（取得'+yen(M.stockCost)+'）＋ 投資信託 '+yen(M.fundVal)+'円（取得'+yen(M.fundCost)+'）／米国株は配当のみ集計</div>';
   dash.innerHTML='<div class="no-print" style="text-align:right;margin-bottom:6px">'+
     '<button class="btn ghost printbtn" onclick="window.print()">🖨 PDF/印刷</button></div>'+
-    kpi+divChart+budget+'<h2>推移（記録の積み上げ）</h2>'+trends+tbl;
+    kpi+brk+divChart+divMonthChart+budget+'<h2>推移（記録の積み上げ）</h2>'+trends+tbl;
 
   updateBudgetSum();
   document.getElementById("b-save").onclick=function(){
@@ -239,8 +282,9 @@ function render(){
     if(s[ymv]&&confirm(ymv+" の記録を削除しますか？")){delete s[ymv];saveSnaps(s);render();}
   };
   ["i-inc","i-exp"].forEach(function(id){document.getElementById(id).oninput=updateBudgetSum;});
-  document.getElementById("i-ym").onchange=function(){var s=snaps()[this.value]||{};
-    document.getElementById("i-inc").value=s.income||"";document.getElementById("i-exp").value=s.expense||"";updateBudgetSum();};
+  document.getElementById("i-ym").onchange=function(){var v=this.value,s=snaps()[v]||{},mm=DATA.mf&&DATA.mf.byMonth[v];
+    document.getElementById("i-inc").value=s.income!=null?s.income:(mm?Math.round(mm.income):"");
+    document.getElementById("i-exp").value=s.expense!=null?s.expense:(mm?Math.round(mm.expense):"");updateBudgetSum();};
 }
 function updateBudgetSum(){
   var inc=n((document.getElementById("i-inc")||{}).value),exp=n((document.getElementById("i-exp")||{}).value);
@@ -254,11 +298,15 @@ function box(l,v){return '<div class="box"><div class="l">'+l+'</div><div class=
 
 function hook(id,bx,kind){document.getElementById(id).addEventListener("change",function(e){
   var f=e.target.files[0];if(!f)return;var rd=new FileReader();
-  rd.onload=function(){var rows=parseCSV(decode(rd.result));
-    if(kind=="hold")DATA.hold=parseHoldings(rows);else DATA.div=parseDiv(rows);
+  rd.onload=function(){var buf=rd.result,txt=decode(buf);
+    if(txt.indexOf("日付")<0&&txt.indexOf("受渡")<0&&txt.indexOf("銘柄")<0){try{txt=new TextDecoder("utf-8").decode(buf);}catch(e){}}
+    var rows=parseCSV(txt);
+    if(kind=="hold")DATA.hold=parseHoldings(rows);
+    else if(kind=="div")DATA.div=parseDiv(rows);
+    else DATA.mf=parseMF(rows);
     document.getElementById(bx).classList.add("ok");render();};
   rd.readAsArrayBuffer(f);});}
-hook("f-hold","fb-hold","hold");hook("f-div","fb-div","div");
+hook("f-hold","fb-hold","hold");hook("f-div","fb-div","div");hook("f-mf","fb-mf","mf");
 if(Object.keys(snaps()).length)render();
 </script>
 </body>
