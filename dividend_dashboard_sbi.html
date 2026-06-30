@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>配当・恩株ダッシュボード（SBI証券CSV取込）</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--card2:#27364b;--line:#334155;
+    --text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--gold:#fcd34d;--green:#34d399;--red:#f87171}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);line-height:1.6;
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .drop{display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-bottom:16px}
+  @media(max-width:640px){.drop{grid-template-columns:1fr}}
+  .filebox{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:14px}
+  .filebox h3{margin:0 0 4px;font-size:14px}
+  .filebox p{margin:0 0 8px;font-size:12px;color:var(--muted)}
+  .filebox.ok{border-color:var(--green);border-style:solid}
+  input[type=file]{font-size:12px;color:var(--muted);width:100%}
+  .kpi{display:grid;gap:10px;grid-template-columns:repeat(2,1fr);margin:8px 0 16px}
+  @media(min-width:720px){.kpi{grid-template-columns:repeat(4,1fr)}}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .box .l{color:var(--muted);font-size:11px}
+  .box .v{font-size:21px;font-weight:700;margin-top:2px}
+  .box .v small{font-size:12px;color:var(--muted);font-weight:400}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px;align-items:center}
+  .toolbar label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px}
+  .btn{background:var(--accent);color:#06283d;border:none;border-radius:8px;padding:7px 12px;
+    font-weight:700;cursor:pointer;font-size:13px}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .stock{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:10px}
+  .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .name{font-size:16px;font-weight:700}
+  .code{color:var(--muted);font-size:12px;font-weight:400;margin-left:6px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:700}
+  .badge.done{background:rgba(252,211,77,.15);color:var(--gold);border:1px solid var(--gold)}
+  .badge.prog{background:rgba(56,189,248,.12);color:var(--accent);border:1px solid var(--accent)}
+  .badge.nisa{background:rgba(52,211,153,.12);color:var(--green);border:1px solid var(--green)}
+  .badge.warn{background:rgba(248,113,113,.12);color:var(--red);border:1px solid var(--red)}
+  .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 14px;margin:10px 0;font-size:13px}
+  @media(min-width:720px){.metrics{grid-template-columns:repeat(4,1fr)}}
+  .metrics .k{color:var(--muted);font-size:11px}
+  .metrics .mv{font-weight:700}
+  .metrics .mv input{width:74px;background:var(--card2);border:1px solid var(--line);
+    color:var(--text);border-radius:6px;padding:3px 6px;font-size:13px;font-weight:700}
+  .bar{height:14px;background:var(--card2);border-radius:999px;overflow:hidden}
+  .bar>span{display:block;height:100%;border-radius:999px;
+    background:linear-gradient(90deg,#38bdf8,#34d399);transition:width .4s}
+  .bar.gold>span{background:linear-gradient(90deg,#fbbf24,#fcd34d)}
+  .cap{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
+  .note{font-size:11px;color:var(--muted);margin-top:8px}
+  .empty{color:var(--muted);text-align:center;padding:40px 20px;border:1px dashed var(--line);
+    border-radius:12px;margin-top:10px}
+  details{margin-top:18px;font-size:12px;color:var(--muted)}
+  summary{cursor:pointer}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📈 配当・恩株ダッシュボード</h1>
+  <div class="sub">SBI証券の「取引履歴(約定履歴)」と「配当金・分配金 履歴」CSVを読み込むと、保有銘柄ごとの取得利回り・恩株達成度を自動計算します。データはブラウザ内だけで処理され、外部に送信されません。</div>
+
+  <div class="drop">
+    <div class="filebox" id="fb-trade">
+      <h3>① 取引履歴（約定履歴）CSV</h3>
+      <p>保有株数・取得単価・購入日を集計します</p>
+      <input type="file" id="f-trade" accept=".csv">
+    </div>
+    <div class="filebox" id="fb-div">
+      <h3>② 配当金・分配金 履歴 CSV</h3>
+      <p>実際の配当受取額（税引後）を集計します</p>
+      <input type="file" id="f-div" accept=".csv">
+    </div>
+  </div>
+
+  <div id="dash"></div>
+
+  <details>
+    <summary>計算方法と注意点</summary>
+    <ul>
+      <li><b>保有株数・取得単価</b>：取引履歴の「現物買 − 現物売」を相殺した現在保有。信用取引・投資信託は対象外です。</li>
+      <li><b>配当累計（実績）</b>：配当履歴CSVの実際の受取額を全期間合計。<b>税額もCSVの実際の源泉徴収額を使う</b>ため、NISA（非課税）はゼロ税として自動反映されます。</li>
+      <li><b>恩株達成度</b>＝配当累計（税引後）÷ 取得総額。100%で投資元本を配当だけで回収＝「恩株」達成。</li>
+      <li><b>年間配当/株</b>：配当実績のある銘柄は直近12ヶ月の実績、新規銘柄は内蔵の予想配当を初期値に表示します。各行の数値は手入力で上書きできます（保存されます）。</li>
+      <li><b>取得利回り</b>＝年間配当/株 ÷ 取得単価。税引後はNISA保有比率に応じて税率を調整。</li>
+      <li>⚠️ 一部売却した銘柄は、配当累計が「売却前に保有していた株数ぶん」を含むため、現在の保有株数に対する達成度がやや高めに出ることがあります。</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+"use strict";
+var TAX=0.20315, DAY=864e5, LS="sbi_div_overrides";
+// 内蔵 予想配当（1株 年間, 税引前）— 直近の会社予想ベース。必要に応じ各行で上書き可
+var FORECAST={
+  "8053":150, // 住友商事 2026/3期(※2026/7/1に1:4分割予定→分割後40)
+  "8306":74,  // 三菱UFJ FG
+  "7011":29,  // 三菱重工業
+  "6525":47,  // KOKUSAI ELECTRIC(予想)
+  "7272":50,  // ヤマハ発動機(2026予想)
+  "3050":47   // DCM HD
+};
+var NOTE={
+  "8053":"2026/7/1に1株→4株の分割予定（分割後の予想は40円/株）",
+  "6525":"会社予想47円（直近実績は37円）",
+  "7272":"2026予想50円（2025実績は35円に減配）"
+};
+
+function parseCSV(text){
+  var rows=[],row=[],cur="",q=false,i,c;
+  for(i=0;i<text.length;i++){c=text[i];
+    if(q){ if(c=='"'){ if(text[i+1]=='"'){cur+='"';i++} else q=false } else cur+=c }
+    else{ if(c=='"')q=true; else if(c==','){row.push(cur);cur=""}
+      else if(c=='\n'){row.push(cur);rows.push(row);row=[];cur=""}
+      else if(c=='\r'){} else cur+=c } }
+  if(cur!==""||row.length){row.push(cur);rows.push(row)}
+  return rows;
+}
+function decode(buf){return new TextDecoder("shift_jis").decode(buf);}
+function num(s){return parseFloat(String(s).replace(/[+,]/g,""))||0;}
+
+var DATA={trades:null,divs:null};
+
+function parseTrades(rows){
+  var hi=rows.findIndex(function(r){return r[0]=="約定日";});
+  var pos={};
+  for(var i=hi+1;i<rows.length;i++){var r=rows[i];
+    if(!r||!r[0]||r.length<10)continue;
+    var name=r[1],code=(r[2]||"").trim(),act=r[4],acct=r[6]||"",q=num(r[8]),p=num(r[9]);
+    if(act.indexOf("現物")<0||!code||q<=0)continue;
+    var P=pos[code]||(pos[code]={name:name,sh:0,cost:0,nisa:0,tok:0,first:r[0]});
+    if(act.indexOf("買")>=0){P.sh+=q;P.cost+=q*p;
+      if(acct.indexOf("NISA")>=0)P.nisa+=q;else P.tok+=q;}
+    else if(P.sh>0){var avg=P.cost/P.sh;P.sh-=q;P.cost-=q*avg;
+      if(acct.indexOf("NISA")>=0)P.nisa=Math.max(0,P.nisa-q);else P.tok=Math.max(0,P.tok-q);}
+  }
+  return pos;
+}
+function parseDivs(rows){
+  var hi=rows.findIndex(function(r){return r[0]=="銘柄コード";});
+  var cum={},ttm={},maxd="";
+  var data=rows.slice(hi+1);
+  data.forEach(function(r){if(r&&r[3]&&r[3]>maxd&&/^\d/.test((r[0]||"").trim()))maxd=r[3];});
+  var cut=maxd?ymd(addYears(maxd,-1)):"";
+  for(var i=0;i<data.length;i++){var r=data[i];
+    if(!r||!/^\d/.test((r[0]||"").trim())||r[5]!="株式配当金")continue;
+    var code=r[0].trim(),gross=num(r[11]),sh=num(r[4]),date=r[3],tax=0;
+    var nx=data[i+1];
+    if(nx&&String(nx[0]).indexOf("配当所得税")>=0)tax=num(nx[11])+num(nx[12]);
+    cum[code]=(cum[code]||0)+(gross-tax);
+    if(sh>0&&date>=cut)ttm[code]=(ttm[code]||0)+gross/sh;
+  }
+  return {cum:cum,ttm:ttm};
+}
+function addYears(d,n){var p=d.split("/");return new Date(+p[0]+n,+p[1]-1,+p[2]);}
+function ymd(dt){return dt.getFullYear()+"/"+String(dt.getMonth()+1).padStart(2,"0")+"/"+String(dt.getDate()).padStart(2,"0");}
+function yen(n){return Math.round(n).toLocaleString("ja-JP");}
+function p1(n){return (Math.round(n*10)/10).toFixed(1);}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function overrides(){try{return JSON.parse(localStorage.getItem(LS))||{}}catch(e){return{}}}
+function saveOv(o){localStorage.setItem(LS,JSON.stringify(o));}
+
+function aps(code,ttm){var o=overrides();
+  if(o[code]!=null&&o[code]!=="")return +o[code];
+  if(FORECAST[code]!=null)return FORECAST[code];
+  if(ttm&&ttm[code])return Math.round(ttm[code]*10)/10;
+  return 0;
+}
+
+function render(){
+  var dash=document.getElementById("dash");
+  if(!DATA.trades){dash.innerHTML='<div class="empty">① の取引履歴CSVを読み込んでください。</div>';return;}
+  var pos=DATA.trades, dv=DATA.divs||{cum:{},ttm:{}};
+  var list=Object.keys(pos).map(function(c){return [c,pos[c]];}).filter(function(x){return x[1].sh>0.0001;});
+  list.sort(function(a,b){return b[1].cost-a[1].cost;});
+
+  var tCost=0,tCum=0,tAnnNet=0,done=0;
+  var cards=list.map(function(x){
+    var code=x[0],P=x[1],cost=P.cost,avg=cost/P.sh;
+    var a=aps(code,dv.ttm), gross=a*P.sh;
+    var nisaFrac=(P.nisa+P.tok)>0?P.nisa/(P.nisa+P.tok):0;
+    var trate=TAX*(1-nisaFrac);
+    var yoc=avg>0?a/avg*100:0, yocN=yoc*(1-trate);
+    var annNet=gross*(1-trate);
+    var cum=dv.cum[code]||0, prog=cost>0?cum/cost*100:0, dn=prog>=100;
+    var rem=annNet>0?Math.max(0,(cost-cum)/annNet):Infinity;
+    tCost+=cost;tCum+=cum;tAnnNet+=annNet;if(dn)done++;
+    var nisaBadge=nisaFrac>=0.999?'<span class="badge nisa">NISA</span>':
+      (nisaFrac>0?'<span class="badge nisa">一部NISA</span>':'');
+    var dataBadge=(dv.cum[code]!=null)?'':'<span class="badge warn">配当実績なし</span>';
+    var w=Math.min(100,prog);
+    return '<div class="stock">'+
+      '<div class="head"><div><span class="name">'+esc(P.name)+'</span>'+
+        '<span class="code">'+code+'</span></div>'+
+        '<div>'+nisaBadge+dataBadge+'<span class="badge '+(dn?"done":"prog")+'">'+
+        (dn?"🎉 恩株達成":"保有中")+'</span></div></div>'+
+      '<div class="metrics">'+
+        m("取得単価×株数",yen(Math.round(avg))+"円 × "+yen(P.sh)+"株")+
+        m("取得総額",yen(cost)+" 円")+
+        m("年間配当/株(編集可)",'<input type="number" step="0.1" value="'+a+'" data-code="'+code+'">')+
+        m("取得利回り(前/後)",p1(yoc)+"% / "+p1(yocN)+"%")+
+        m("税引後 年間配当",yen(annNet)+" 円")+
+        m("配当累計(実績/税後)",yen(cum)+" 円")+
+        m("恩株まで残り",rem===Infinity?"—":dn?"達成済":p1(rem)+" 年")+
+        m("恩株達成度",p1(prog)+" %")+
+      '</div>'+
+      '<div class="bar '+(dn?"gold":"")+'"><span style="width:'+w+'%"></span></div>'+
+      '<div class="cap"><span>0%</span><span>恩株 '+p1(prog)+'%</span><span>100% 元本回収</span></div>'+
+      (NOTE[code]?'<div class="note">※ '+esc(NOTE[code])+'</div>':'')+
+    '</div>';
+  }).join("");
+
+  var kpi=
+    box("保有銘柄",list.length+'<small> 銘柄</small>')+
+    box("取得総額",yen(tCost)+'<small> 円</small>')+
+    box("配当累計(実績/税後)",yen(tCum)+'<small> 円</small>')+
+    box("恩株 達成度/達成数",(tCost>0?p1(tCum/tCost*100):"0.0")+'<small> % / '+done+"件</small>");
+  dash.innerHTML='<div class="kpi">'+kpi+'</div>'+
+    '<div class="toolbar"><button class="btn ghost" id="reset">配当の手入力をリセット</button>'+
+    (DATA.divs?'':'<label>② 配当履歴CSV未読込：配当累計は0で表示中</label>')+'</div>'+
+    cards;
+
+  document.getElementById("reset").onclick=function(){if(confirm("手入力した配当をすべて消して既定値に戻しますか？")){saveOv({});render();}};
+  Array.prototype.forEach.call(dash.querySelectorAll("input[data-code]"),function(inp){
+    inp.onchange=function(){var o=overrides();o[inp.getAttribute("data-code")]=inp.value;saveOv(o);render();};
+  });
+}
+function m(k,v){return '<div><div class="k">'+k+'</div><div class="mv">'+v+'</div></div>';}
+function box(l,v){return '<div class="box"><div class="l">'+l+'</div><div class="v">'+v+'</div></div>';}
+
+function hook(inputId,boxId,kind){
+  document.getElementById(inputId).addEventListener("change",function(e){
+    var f=e.target.files[0];if(!f)return;
+    var rd=new FileReader();
+    rd.onload=function(){var rows=parseCSV(decode(rd.result));
+      if(kind=="trade")DATA.trades=parseTrades(rows);else DATA.divs=parseDivs(rows);
+      document.getElementById(boxId).classList.add("ok");render();};
+    rd.readAsArrayBuffer(f);
+  });
+}
+hook("f-trade","fb-trade","trade");
+hook("f-div","fb-div","div");
+render();
+</script>
+</body>
+</html>
