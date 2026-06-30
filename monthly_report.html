@@ -58,7 +58,7 @@
 <body>
 <div class="wrap">
   <h1>📊 月次マネーレポート <span class="muted" id="ym-title"></span></h1>
-  <div class="sub">毎月初に、先月ダウンロードしたCSV（SBIの保有証券・配当履歴、マネーフォワードの収支など）を<b>まとめてここにドロップするだけ</b>。種類を自動判別し、<b>先月のレポートを自動生成・自動記録</b>します。推移はブラウザ内に積み上がります。</div>
+  <div class="sub">毎月初に、先月ダウンロードしたCSV（SBIの保有証券・配当履歴、マネーフォワードの収支など）を<b>まとめてここにドロップするだけ</b>。種類を自動判別し、<b>先月のレポートを自動生成・自動記録</b>します。最後に<b>「✉️ Gmailで下書き作成」</b>を押せば、サマリー入りのメール下書きがワンクリックで開きます。推移はブラウザ内に積み上がります。</div>
 
   <div id="dropzone" class="dropzone no-print">
     <div class="dz-big">⬇ ここに今月DLしたCSVをまとめてドロップ</div>
@@ -95,6 +95,23 @@ function man(v){return (v/10000).toLocaleString("ja-JP",{maximumFractionDigits:1
 function p1(v){return (Math.round(v*10)/10).toFixed(1);}
 function sign(v){return (v>=0?"+":"")+yen(v);}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function mailAddr(){return localStorage.getItem("mmr_email")||"ph2144.tt.0609@gmail.com";}
+function buildMail(ym,M,inc,exp){
+  var top=DATA.hold.stocks.map(function(s){return {n:s.name,p:(DATA.div.life[s.code]||0)/s.cost*100};})
+    .sort(function(a,b){return b.p-a.p;}).slice(0,3).map(function(x){return x.n+" "+p1(x.p)+"%";}).join(" / ");
+  var dm=DATA.div.byMonth[ym]?DATA.div.byMonth[ym].dom+DATA.div.byMonth[ym].us:0, bal=(inc||0)-(exp||0);
+  var L=["家計簿 月次レポート "+ym,"",
+    "■資産","リスク資産 評価額: "+yen(M.asset)+"円",
+    "含み損益: "+sign(M.unreal)+"円 ("+(M.unreal>=0?"+":"")+p1(M.unreal/(M.asset-M.unreal||1)*100)+"%)",
+    "恩株 達成度: "+p1(M.onkabu)+"%（残り "+(M.remYears===Infinity?"—":p1(M.remYears))+"年）","",
+    "■配当(税引後)",ym+"の配当: "+yen(dm)+"円",parseInt(ym)+"年累計: "+yen(M.divYTD)+"円","生涯累計: "+yen(M.lifeDiv)+"円","",
+    "■恩株トップ3",top,"",
+    "■家計",(inc||exp)?("収入 "+yen(inc)+" / 支出 "+yen(exp)+" / 収支 "+sign(bal)+"円"):"(マネーフォワード未取込)","",
+    "※詳細グラフは monthly_report.html"].filter(function(x){return x!==null;});
+  var su="【家計簿レポート】"+ym+" 資産"+man(M.asset)+"万・恩株"+p1(M.onkabu)+"%";
+  return "https://mail.google.com/mail/?view=cm&fs=1&to="+encodeURIComponent(mailAddr())+
+    "&su="+encodeURIComponent(su)+"&body="+encodeURIComponent(L.join("\n"));
+}
 
 function parseHoldings(rows){
   var stocks=[],funds=[],acct=null,inT=false,sec="";
@@ -284,7 +301,9 @@ function render(){
 
   var brk='<div class="muted" style="margin:-4px 0 6px">内訳：株式 '+yen(M.stockVal)+'円（取得'+yen(M.stockCost)+'）＋ 投資信託 '+yen(M.fundVal)+'円（取得'+yen(M.fundCost)+'）／米国株は配当のみ集計</div>';
   dash.innerHTML='<div class="no-print" style="text-align:right;margin-bottom:6px">'+
-    '<button class="btn ghost printbtn" onclick="window.print()">🖨 PDF/印刷</button></div>'+
+    '<button class="btn" id="b-mail" style="margin-right:6px">✉️ Gmailで下書き作成</button>'+
+    '<button class="btn ghost" id="b-mailto" style="margin-right:6px">宛先変更</button>'+
+    '<button class="btn ghost" onclick="window.print()">🖨 PDF/印刷</button></div>'+
     kpi+brk+divChart+divMonthChart+budget+'<h2>推移（記録の積み上げ）</h2>'+trends+tbl;
 
   updateBudgetSum();
@@ -303,6 +322,14 @@ function render(){
   };
   ["i-inc","i-exp"].forEach(function(id){document.getElementById(id).oninput=updateBudgetSum;});
   document.getElementById("i-ym").onchange=function(){targetYM=this.value;render();};
+  document.getElementById("b-mail").onclick=function(){
+    var inc=n(document.getElementById("i-inc").value),exp=n(document.getElementById("i-exp").value);
+    window.open(buildMail(ym,M,inc,exp),"_blank");
+  };
+  document.getElementById("b-mailto").onclick=function(){
+    var v=prompt("メール下書きの宛先アドレス",mailAddr());
+    if(v){localStorage.setItem("mmr_email",v.trim());alert("宛先を "+v.trim()+" に設定しました。");}
+  };
 }
 function updateBudgetSum(){
   var inc=n((document.getElementById("i-inc")||{}).value),exp=n((document.getElementById("i-exp")||{}).value);
