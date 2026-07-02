@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""資産管理台帳 分析レポート PDF 生成（A4・5ページ・日本語）
+"""資産管理台帳 分析レポート PDF 生成（A4・6ページ・日本語）
 
-P1: ダッシュボード（KPI／金融資産内訳／BS／不動産×ローン）
+P1: ダッシュボード（KPI／金融資産内訳／BS／不動産×ローン／前月からの資産の変化）
 P2: 投資の見える化（NISA生涯枠の進捗／企業型DCの積み上げ・年7%）
-P3: 投資の見える化②（高配当株の恩株・配当による元本回収・夫婦合算＋SPYD）
-P4: 不動産投資と老後の設計（住宅＋投資ローン／サブリース／老後収入の柱・夫婦の私的年金）
-P5: 強み・弱点・アクション／金融資産の歩み／提出資料チェックリスト
-P6: 保険・保障の総点検（保障マップ／加入保険一覧／名義変更スキーム／保険の弱点・残る穴）
+P3: 不動産投資と老後の設計（住宅＋投資ローン／サブリース／老後収入の柱・夫婦の私的年金）
+P4: 強み・弱点・アクション／金融資産の歩み／提出資料チェックリスト
+P5: 保険・保障の総点検（保障マップ／加入保険一覧／名義変更スキーム／保険の弱点・残る穴）
+P6: 世帯年収（実収入）の推移（旅費_世帯年収まとめ.xlsx を参照し年次推移を自動表示）
 """
 import os
 import csv as _csv
@@ -23,7 +23,7 @@ pdfmetrics.registerFont(TTFont("JP",  r"C:\Windows\Fonts\meiryo.ttc",  subfontIn
 pdfmetrics.registerFont(TTFont("JPB", r"C:\Windows\Fonts\meiryob.ttc", subfontIndex=0))
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(BASE, "資産管理台帳_分析レポート_20260626_v18.pdf")
+OUT = os.path.join(BASE, "資産管理台帳_分析レポート_20260702_v25.pdf")
 
 W, H = A4                      # 595.27 x 841.89
 ML, MR = 36, 36                # 左右マージン
@@ -162,25 +162,52 @@ _csv_files = sorted(_glob.glob(os.path.join(CSV_DIR, "資産推移月次_*.csv")
 if not _csv_files:
     raise FileNotFoundError(f"資産推移CSVが見つかりません: {CSV_DIR}")
 CSV_PATH = _csv_files[-1]   # ファイル名末尾の日付が最新のものを採用
+# 金融資産カテゴリ（＝P1円グラフの6分類）。P1「前月からの資産の変化」の内訳に使う。
+# (表示名, CSV列名, 発散バーの色)。列名はCSVヘッダと完全一致必須（cp932）。
+CAT_DEFS = [
+    ("現金・預金",     "預金・現金・暗号資産（円）", BLUE),
+    ("高配当株",       "株式(現物)（円）",          TEAL),
+    ("投資信託",       "投資信託（円）",            GOLD),
+    ("企業型DC",       "年金（円）",               DARK),
+    ("外貨建年金(亨)",  "保険（円）",               ROSE),
+    ("ポイント",       "ポイント（円）",            GRAY),
+]
 trend = []      # (date_str, 金融資産 = 合計 - 不動産)
 tot_raw = []    # (date_str, 総資産 = 合計)
+cat_rows = {lbl: [] for lbl, _c, _col in CAT_DEFS}   # カテゴリ別 (date, 値)
 with open(CSV_PATH, encoding="cp932") as f:
     for row in _csv.DictReader(f):
         total = int(row["合計（円）"])
         re_v  = int(row["不動産（円）"])
         trend.append((row["日付"], total - re_v))
         tot_raw.append((row["日付"], total))
+        for lbl, _c, _col in CAT_DEFS:
+            cat_rows[lbl].append((row["日付"], int(row[_c])))
 trend.sort()
 tot_raw.sort()
 monthly = {}
+month_last_date = {}          # 月 → その月の最終データ日（"YYYY/MM/DD"）
 for dt, v in trend:
     monthly[dt[:7]] = v
+    month_last_date[dt[:7]] = dt
 monthly_tot = {}
 for dt, v in tot_raw:
     monthly_tot[dt[:7]] = v
+
+# ---- 月末基準：当月が未完了（最終データ日≠暦上の月末）なら最新月を落とす ----
+# 例）7/1しか無い7月は外し、直近の完了月末（6/30）を最新にする。毎月自動判定。
+import calendar as _cal
+if monthly:
+    _lm = max(monthly)                          # 最新月キー "YYYY/MM"
+    _ly, _lmo = int(_lm[:4]), int(_lm[5:7])
+    _lastday = _cal.monthrange(_ly, _lmo)[1]    # その月の暦上の末日
+    _havday = int(month_last_date[_lm][8:10])   # 実際の最終データ日
+    if _havday != _lastday and len(monthly) >= 2:
+        del monthly[_lm]
+        monthly_tot.pop(_lm, None)
 trend = sorted(monthly.items())
 
-# ---- 前月比（最新月 vs 前月・MF月次ベース）----
+# ---- 前月比（最新月 vs 前月・MF月次 / 月末残高ベース）----
 _ms = sorted(monthly)
 if len(_ms) >= 2:
     CUR_M, PREV_M = _ms[-1], _ms[-2]
@@ -189,6 +216,65 @@ if len(_ms) >= 2:
 else:
     CUR_M = PREV_M = None
     FIN_DIFF = TOT_DIFF = 0
+
+# ---- 前月比（カテゴリ別・最新月 vs 前月）----
+# 各カテゴリの月次は「その月の最終スナップショット」を採用（金融資産／総資産と同じ流儀）。
+cat_diff = []   # (label, prev, cur, diff, color)  ※描画側で寄与額の大きい順にソート
+if CUR_M and PREV_M:
+    for lbl, _c, col in CAT_DEFS:
+        mm = {}
+        for dt, v in sorted(cat_rows[lbl]):
+            mm[dt[:7]] = v
+        cur = mm.get(CUR_M, 0)
+        prev = mm.get(PREV_M, 0)
+        cat_diff.append((lbl, prev, cur, cur - prev, col))
+
+# ---- 世帯実年収（旅費_世帯年収まとめ.xlsx を参照・2026-07-01 リンク）----
+# 出張旅費の自動転記先ブックから、給与＋非課税の出張日当＋DPC＋配偶者収入＋企業型DCを
+# 年ごとに読み、世帯の「実年収」を構成する。旅費行(=B16等)とSUM行は数式でopenpyxlの
+# キャッシュがNoneのことがあるため、旅費は月セルから再計算し、他は定数セルを直読みする。
+import openpyxl as _oxl
+INCOME_XLSX = os.path.normpath(os.path.join(
+    BASE, "..", "..", "..", "02_しずく", "05_出張旅費", "旅費_世帯年収まとめ.xlsx"))
+INCOME_OK = os.path.exists(INCOME_XLSX)
+income_years = []   # [dict(year, toru, nittou, dpc, mika, dc, total, lastm)]
+_iw = None
+if INCOME_OK:
+    try:                                        # xlsxが壊れていてもレポート全体は止めない（P6は注記表示へ退避）
+        _wb = _oxl.load_workbook(INCOME_XLSX, data_only=True)
+        _iw = _wb["Sheet1"] if "Sheet1" in _wb.sheetnames else _wb.worksheets[0]
+    except Exception as _ie:
+        INCOME_OK = False
+        print("P6 世帯年収xlsxの読込に失敗（レポートは継続）:", type(_ie).__name__, _ie)
+if INCOME_OK and _iw is not None:
+    _YCOL = {2025: 2, 2026: 3, 2027: 4, 2028: 5, 2029: 6, 2030: 7}
+
+    def _num(r, cc):
+        v = _iw.cell(r, cc).value
+        return float(v) if isinstance(v, (int, float)) else 0.0
+
+    def _travel(first, cc):
+        return sum(_num(first + m, cc) for m in range(12))
+
+    def _last_travel_month(cc):
+        last = 0
+        for m in range(12):
+            v = _iw.cell(4 + m, cc).value
+            if isinstance(v, (int, float)) and v > 0:
+                last = m + 1
+        return last
+
+    for _y, _cc in _YCOL.items():
+        toru = _num(35, _cc); dpc = _num(38, _cc); mika = _num(39, _cc)
+        dc = _num(40, _cc) + _num(41, _cc)
+        nittou = _travel(4, _cc) + _travel(19, _cc)   # 亨＋美香の出張日当（非課税）
+        if toru + dpc + mika <= 0:      # 給与系が無い年（DCのみ・未確定）は推移に載せない
+            continue
+        income_years.append(dict(
+            year=_y, toru=toru, nittou=nittou, dpc=dpc, mika=mika, dc=dc,
+            total=toru + nittou + dpc + mika + dc, lastm=_last_travel_month(_cc)))
+    income_years.sort(key=lambda d: d["year"])
+
 
 # ============================================================ 恩株データ（高配当株の配当による元本回収）
 # 日本株＝SBI保有証券CSV＋配当履歴CSV、SPYD＝外国株式の保有画面（取得額）から集計。
@@ -224,7 +310,7 @@ ONK_ACCT = [  # (口座, 取得額, 恩株%, 直近1年配当)
 ONK_NEAR = "郵船 残り約14年 ／ 第一ライフ 約14.5年 ／ 商船三井 約16.8年"
 
 c = canvas.Canvas(OUT, pagesize=A4)
-c.setTitle("資産管理台帳 分析レポート 2026-06-26 v18（P3に高配当株の恩株ページを新設＝配当による元本回収を全保有銘柄・口座別・ハイライトで可視化。夫婦合算＋SPYD。6ページ構成に振り直し）")
+c.setTitle("資産管理台帳 分析レポート 2026-07-02 v25（v24=世帯年収ページ等の家計改善を土台に、P3へ高配当株の恩株ページを統合＝配当による元本回収を全保有銘柄・口座別・ハイライトで可視化。夫婦合算＋SPYD。7ページ構成に振り直し。各社資料は2026-06-12/13のまま）")
 
 
 # ============================================================ 共通関数
@@ -276,7 +362,7 @@ c.rect(0, Y(64), W, 64, fill=1, stroke=0)
 text(ML, 34, "資産管理 分析レポート", 19, "JPB", WHITE)
 text(ML, 52, "田中亨・美香 世帯（本人40歳／妻39歳／湊人さん8歳）", 8.5, "JP", HexColor("#C8D2E4"))
 text(W - MR, 34, "台帳基準日 2026-06-12", 9, "JP", HexColor("#C8D2E4"), "r")
-text(W - MR, 48, "分析日 2026-06-13", 9, "JP", HexColor("#C8D2E4"), "r")
+text(W - MR, 48, "分析日 2026-07-01", 9, "JP", HexColor("#C8D2E4"), "r")
 
 # ---- KPIカード
 kpis = [
@@ -435,7 +521,45 @@ for ln in wrap(summary, "JP", 8.5, CW - 24):
     text(ML + 12, yy, ln, 8.5, "JP", TXT)
     yy += 13
 
-text(W / 2, 826, "－ 1 / 6 －", 8, "JP", GRAY, "c")
+# ---- 前月からの資産の変化（カテゴリ別・MF月次スナップショット）
+# 総合評価ボックス（st+90）の下の余白に配置。金融資産の6分類の増減を発散バーで見える化。
+if CUR_M and PREV_M and cat_diff:
+    ch_t = st + 90 + 20
+    _pm, _cm = int(PREV_M[5:7]), int(CUR_M[5:7])
+    text(ML, ch_t, f"■ 前月からの資産の変化（MF月次・{_pm}月末 → {_cm}月末）", 10.5, "JPB", NAVY)
+    _tsgn = "+" if TOT_DIFF >= 0 else "−"
+    text(W - MR, ch_t, f"総資産 {_tsgn}{abs(TOT_DIFF) // 10000:,}万円",
+         11, "JPB", TEAL if TOT_DIFF >= 0 else RED, "r")
+    axis_x = ML + 312           # 発散バーの中心（増=右/減=左）
+    half_w = 110
+    maxabs = max((abs(d) for _l, _p, _cc, d, _col in cat_diff), default=1) or 1
+    ry = ch_t + 18
+    for lbl, prev, cur, diff, col in sorted(cat_diff, key=lambda r: -abs(r[3])):
+        man = abs(diff) // 10000                    # 増減の万単位（絶対値・切り捨て）
+        sgn = 1 if diff >= 0 else -1
+        prev_m = prev // 10000
+        cur_m = prev_m + sgn * man                  # prev→cur を増減表示と必ず一致させる
+        text(ML + 4, ry + 10, lbl, 8, "JP", TXT)
+        text(ML + 108, ry + 10, f"{prev_m:,}万→{cur_m:,}万", 7, "JP", SUB)
+        c.setStrokeColor(MGRAY)
+        c.setLineWidth(0.5)
+        c.line(axis_x, Y(ry + 1), axis_x, Y(ry + 13))
+        bw = half_w * abs(diff) / maxabs
+        if diff >= 0:
+            c.setFillColor(TEAL)
+            c.rect(axis_x, Y(ry + 12), bw, 9, fill=1, stroke=0)
+        else:
+            c.setFillColor(RED)
+            c.rect(axis_x - bw, Y(ry + 12), bw, 9, fill=1, stroke=0)
+        _dsgn = "+" if diff >= 0 else "−"
+        text(W - MR, ry + 10, f"{_dsgn}{abs(diff) // 10000:,}万円",
+             8, "JPB", TEAL if diff >= 0 else RED, "r")
+        ry += 15
+    text(ML, ry + 10,
+         "※MFの各月末残高で前月末と比較（当月途中の日次は月末確定後に反映）。不動産は評価額固定。金額は万円未満切り捨て。",
+         6.5, "JP", SUB)
+
+text(W / 2, 826, "－ 1 / 7 －", 8, "JP", GRAY, "c")
 c.showPage()
 
 # ============================================================ Page 2 投資の見える化
@@ -603,7 +727,7 @@ dcp2 = "台帳の将来予測「1.7億円」は年8%前提。本レポートは�
 text(ML + 12, dpt + 15, dcp, 7.6, "JP", DARK)
 text(ML + 12, dpt + 28, dcp2, 7.6, "JP", SUB)
 
-text(W / 2, 826, "－ 2 / 6 －", 8, "JP", GRAY, "c")
+text(W / 2, 826, "－ 2 / 7 －", 8, "JP", GRAY, "c")
 c.showPage()
 
 # ============================================================ Page 3 投資の見える化②（高配当株の恩株）
@@ -710,10 +834,10 @@ c.rect(ML, Y(nt + 40), 3, 40, fill=1, stroke=0)
 text(ML + 12, nt + 14, "※対象：日本株（夫婦合算）＋SPYD（米国高配当ETF・312株）。台帳P1「高配当株 9,361,519円」＝日本株＋SPYDの範囲とほぼ整合。", 6.8, "JP", TXT)
 text(ML + 12, nt + 26, "　SPYD：取得1,672,068円／生涯配当210,933円（税引後）＝恩株12.6%。SPCX・ボーイングは無配の成長株のため恩株には含めません。", 6.8, "JPB", AMBER)
 
-text(W / 2, 826, "－ 3 / 6 －", 8, "JP", GRAY, "c")
+text(W / 2, 826, "－ 3 / 7 －", 8, "JP", GRAY, "c")
 c.showPage()
 
-# ============================================================ Page 4 不動産投資と老後の設計
+# ============================================================ Page 3 不動産投資と老後の設計
 c.setFillColor(NAVY)
 c.rect(0, Y(44), W, 44, fill=1, stroke=0)
 text(ML, 28, "不動産投資と老後の設計", 14, "JPB", WHITE)
@@ -885,14 +1009,14 @@ c.line(rl_lx + 190, Y(rl_lg), rl_lx + 212, Y(rl_lg))
 text(rl_lx + 216, rl_lg + 4, "投資用ローン（オリックス2戸・2.25%→2.60%）", 7, "JP", TXT)
 text(W - MR, rl_lg + 16, "※投資用は次回金利更改で2.85%へ上昇予定（+1%で年約46万円増）", 7, "JPB", RED, "r")
 
-text(W / 2, 826, "－ 4 / 6 －", 8, "JP", GRAY, "c")
+text(W / 2, 826, "－ 4 / 7 －", 8, "JP", GRAY, "c")
 c.showPage()
 
-# ============================================================ Page 5 強み・弱点・アクション
+# ============================================================ Page 4 強み・弱点・アクション
 c.setFillColor(NAVY)
 c.rect(0, Y(44), W, 44, fill=1, stroke=0)
 text(ML, 28, "分析サマリー：強み・弱点・アクション", 14, "JPB", WHITE)
-text(W - MR, 28, "田中家 資産管理レポート 2026-06-13", 8, "JP", HexColor("#C8D2E4"), "r")
+text(W - MR, 28, "田中家 資産管理レポート 2026-07-01", 8, "JP", HexColor("#C8D2E4"), "r")
 
 # ---- 強み
 text(ML, 66, "■ 強み", 10.5, "JPB", TEAL)
@@ -991,15 +1115,8 @@ for due, act in actions:
 # ---- 金融資産の歩み（不動産除く・マネーフォワード月次）
 wt += 8
 text(ML, wt, "■ 金融資産の歩み（不動産除く）", 10.5, "JPB", NAVY)
-# 前月比サマリー（タイトル行の右・MF月次ベース。不動産は評価額固定のため 資産の動き＝金融資産）
-if CUR_M and PREV_M:
-    _sign = "+" if FIN_DIFF >= 0 else "−"
-    _col = TEAL if FIN_DIFF >= 0 else RED
-    _seg = _sign + f"{abs(FIN_DIFF) // 10000:,}万円"
-    _lbl = f"前月比（{int(PREV_M[5:7])}→{int(CUR_M[5:7])}月） 資産 "
-    _x = W - MR
-    text(_x, wt, _seg, 9, "JPB", _col, "r"); _x -= pdfmetrics.stringWidth(_seg, "JPB", 9)
-    text(_x, wt, _lbl, 8, "JP", SUB, "r")
+# 前月比の一言サマリーは P1「前月からの資産の変化」へ集約したためP4からは削除
+# （終点の金額ラベルとの重なりも解消。折れ線と終点ラベルはそのまま）。
 wt += 8
 ch_h = 48
 ymax = 40_000_000
@@ -1074,10 +1191,10 @@ for i, (name, freq, pending) in enumerate(checklist):
 wt += 15 + 5 * 12
 
 text(ML, 822, "※本レポートは台帳・各社照会の数値に基づく概算・参考情報であり、特定の金融商品の売買を推奨するものではありません。", 6.5, "JP", GRAY)
-text(W / 2, 826, "－ 5 / 6 －", 8, "JP", GRAY, "c")
+text(W / 2, 826, "－ 5 / 7 －", 8, "JP", GRAY, "c")
 c.showPage()
 
-# ============================================================ Page 6 保険・保障の総点検
+# ============================================================ Page 5 保険・保障の総点検
 c.setFillColor(NAVY)
 c.rect(0, Y(44), W, 44, fill=1, stroke=0)
 text(ML, 28, "保険・保障の総点検", 14, "JPB", WHITE)
@@ -1212,7 +1329,140 @@ for ln in wrap(summ5, "JP", 8, CW - 24):
     yy += 13
 
 text(ML, 822, "※医療保険2本は掛け捨て（無解約返戻金型）・法人負担のため、P1〜P4の資産・負債・純資産の数値には影響しません。", 6.5, "JP", GRAY)
-text(W / 2, 826, "－ 6 / 6 －", 8, "JP", GRAY, "c")
+text(W / 2, 826, "－ 6 / 7 －", 8, "JP", GRAY, "c")
+
+c.showPage()
+
+# ============================================================ Page 6 世帯年収（実収入）の推移
+c.setFillColor(NAVY)
+c.rect(0, Y(44), W, 44, fill=1, stroke=0)
+text(ML, 28, "世帯年収（実収入）の推移", 14, "JPB", WHITE)
+text(W - MR, 28, "給与＋非課税の出張日当＋DPC＋配偶者収入＋企業型DC", 8, "JP", HexColor("#C8D2E4"), "r")
+
+
+def _man(v):
+    s = f"{v:,.1f}"
+    return s[:-2] if s.endswith(".0") else s
+
+
+if not income_years:
+    text(ML, 90, "※ 旅費_世帯年収まとめ.xlsx を参照できないか、年収データが未入力のため表示できません。",
+         9.5, "JP", RED)
+    text(ML, 108, f"参照先：{INCOME_XLSX}", 7, "JP", SUB)
+else:
+    it0 = 66
+    text(ML, it0, "■ 世帯の実年収 ― 額面給与だけでなく、非課税の出張日当・DPC・企業型DCまで含めた実収入ベース",
+         10.0, "JPB", NAVY)
+    text(ML, it0 + 14,
+         "出典：02_しずく＼05_出張旅費＼旅費_世帯年収まとめ.xlsx を自動参照。出張日当は毎月の精算ファイルから自動転記され、この推移も自動で更新されます。",
+         7.0, "JP", SUB)
+
+    SEGS = [("給与（亨）", "toru", NAVY),
+            ("出張日当（非課税）", "nittou", GOLD),
+            ("DPC", "dpc", TEAL),
+            ("給与（美香）", "mika", ROSE),
+            ("企業型DC（夫婦）", "dc", PURPLE)]
+
+    # ---- 積み上げ棒グラフ（年ごと）----
+    gtop, gh = it0 + 34, 150
+    gx0, gx1 = ML + 44, ML + 300
+    ymax = 400
+    _mx = max(d["total"] for d in income_years)
+    while ymax < _mx:
+        ymax += 400
+    for gv in range(0, ymax + 1, 400):
+        yl = gtop + gh - gh * gv / ymax
+        c.setStrokeColor(MGRAY)
+        c.setLineWidth(0.4)
+        c.line(gx0, Y(yl), gx1, Y(yl))
+        text(gx0 - 4, yl + 2, ("0" if gv == 0 else f"{gv:,}万"), 6, "JP", GRAY, "r")
+    nb = len(income_years)
+    slot = (gx1 - gx0) / nb
+    bw = min(50, slot * 0.5)
+    for i, d in enumerate(income_years):
+        cxb = gx0 + slot * (i + 0.5)
+        acc = 0.0
+        for (lbl, key, col) in SEGS:
+            val = d[key]
+            if val <= 0:
+                continue
+            c.setFillColor(col)
+            c.rect(cxb - bw / 2, Y(gtop + gh - gh * acc / ymax),
+                   bw, gh * val / ymax, fill=1, stroke=0)
+            acc += val
+        topy = gtop + gh - gh * d["total"] / ymax
+        text(cxb, topy - 4, f"{_man(d['total'])}万", 8, "JPB", NAVY, "c")
+        text(cxb, gtop + gh + 11, f"{d['year']}年", 8, "JPB", TXT, "c")
+        if 0 < d["lastm"] < 12:
+            text(cxb, gtop + gh + 20, f"{d['lastm']}月まで・進行中", 5.8, "JP", AMBER, "c")
+
+    # ---- 凡例（右・最新年の内訳を併記）----
+    lx, ly = gx1 + 24, gtop + 10
+    latest = income_years[-1]
+    for (lbl, key, col) in SEGS:
+        c.setFillColor(col)
+        c.rect(lx, Y(ly), 8, 8, fill=1, stroke=0)
+        text(lx + 12, ly + 7, lbl, 6.8, "JP", TXT)
+        text(W - MR, ly + 7, f"{_man(latest[key])}万", 6.8, "JP", SUB, "r")
+        ly += 15
+    c.setStrokeColor(MGRAY)
+    c.setLineWidth(0.5)
+    c.line(lx, Y(ly + 1), W - MR, Y(ly + 1))
+    ly += 13
+    text(lx, ly, f"{latest['year']}年 実年収", 7.2, "JPB", NAVY)
+    text(W - MR, ly, f"{_man(latest['total'])}万", 8.5, "JPB", NAVY, "r")
+
+    # ---- 内訳テーブル ----
+    tt = gtop + gh + 44
+    text(ML, tt, "■ 内訳（万円）", 10.0, "JPB", NAVY)
+    colx = [ML + 6, ML + 128, ML + 204, ML + 272, ML + 352, ML + 440, W - MR - 6]
+    heads = ["年", "給与(亨)", "日当(非課税)", "DPC", "給与(美香)", "企業型DC", "実年収"]
+    hy = tt + 18
+    box(ML, hy - 12, CW, 16, NAVY)
+    for x, h in zip(colx, heads):
+        text(x, hy, h, 7.5, "JPB", WHITE, "l" if h == "年" else "r")
+    ry = hy + 18
+    for d in income_years:
+        vals = [f"{d['year']}", _man(d["toru"]), _man(d["nittou"]), _man(d["dpc"]),
+                _man(d["mika"]), _man(d["dc"]), _man(d["total"])]
+        for j, (x, v) in enumerate(zip(colx, vals)):
+            text(x, ry, v, 8, "JPB" if j in (0, 6) else "JP",
+                 NAVY if j == 6 else TXT, "l" if j == 0 else "r")
+        c.setStrokeColor(MGRAY)
+        c.setLineWidth(0.3)
+        c.line(ML, Y(ry + 5), W - MR, Y(ry + 5))
+        ry += 18
+
+    # ---- 前年比 ----
+    if len(income_years) >= 2:
+        a, b = income_years[-2], income_years[-1]
+        diff = b["total"] - a["total"]
+        sign = "＋" if diff >= 0 else "－"
+        text(ML, ry + 8,
+             f"前年比：{a['year']}年 {_man(a['total'])}万 → {b['year']}年 {_man(b['total'])}万"
+             f"（{sign}{_man(abs(diff))}万）"
+             + ("　※最新年は進行中のため今後増加します" if 0 < b["lastm"] < 12 else ""),
+             8, "JPB", DARK)
+
+    # ---- 注記ボックス ----
+    nbx = ry + 22
+    box(ML, nbx, CW, 76, TEALBG)
+    c.setFillColor(TEAL)
+    c.rect(ML, Y(nbx + 76), 3, 76, fill=1, stroke=0)
+    text(ML + 12, nbx + 15, "この『実年収』の考え方", 9.5, "JPB", DARK)
+    notes = [
+        "・額面給与に、非課税の出張日当・DPC報酬・配偶者（美香）の給与・企業型DC（将来資産）まで合算した世帯の実収入ベース。",
+        "・出張日当は所得税・住民税・社会保険料が非課税のため、同じ手取りでも額面給与より効率がよい“隠れ収入”。",
+        "・2024年分の出張日当47.5万円は2025年に一括計上した経緯があり、旅費まとめの備考に記録済み（本表は2025年以降が対象）。",
+        "・数値は毎月の出張精算→旅費_世帯年収まとめ.xlsx（自動転記）を参照。家計簿を更新するたびに、この推移も最新化されます。",
+    ]
+    ny = nbx + 30
+    for n in notes:
+        for ln in wrap(n, "JP", 7.4, CW - 24):
+            text(ML + 12, ny, ln, 7.4, "JP", TXT)
+            ny += 11
+
+text(W / 2, 826, "－ 7 / 7 －", 8, "JP", GRAY, "c")
 
 c.save()
 print("OK:", OUT)
@@ -1227,17 +1477,29 @@ def send_report_mail(pdf_path):
     import smtplib
     import ssl
     from email.message import EmailMessage
-    from datetime import date
+    from datetime import datetime
 
     ADDR = "ph2144.tt.0609@gmail.com"           # 送信元・宛先とも本人（自分→自分）
+    LOG_MD = os.path.join(BASE, "メール自動送信_仕組みと送信ログ.md")
+
+    def _log(result):
+        # 実行のたびに送信ログMDの表末尾へ1行追記（成功/スキップ/失敗）。失敗しても本処理は止めない。
+        try:
+            stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+            with open(LOG_MD, "a", encoding="utf-8") as lf:
+                lf.write(f"| {stamp} | {os.path.basename(pdf_path)} | {ADDR} | {result} |\n")
+        except Exception as _e:
+            print("（送信ログ追記に失敗:", _e, "）")
+
     app_pass = os.environ.get("KAKEI_MAIL_PASS")
     if not app_pass:
         print("メール送信スキップ：環境変数 KAKEI_MAIL_PASS が未設定です（PDFは生成済み）")
+        _log("スキップ（KAKEI_MAIL_PASS未設定）")
         return
     app_pass = app_pass.replace(" ", "")        # アプリパスワードの空白は除去して結合
 
     msg = EmailMessage()
-    msg["Subject"] = "【家計レポート】最新版 " + date.today().strftime("%Y%m%d")
+    msg["Subject"] = "【家計レポート】最新版 " + datetime.now().strftime("%Y%m%d")
     msg["From"] = ADDR
     msg["To"] = ADDR
     msg.set_content(
@@ -1264,11 +1526,17 @@ def send_report_mail(pdf_path):
     with open(pdf_path, "rb") as f:
         msg.add_attachment(f.read(), maintype="application", subtype="pdf",
                            filename=os.path.basename(pdf_path))
-    ctx = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as s:
-        s.login(ADDR, app_pass)
-        s.send_message(msg)
+    try:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as s:
+            s.login(ADDR, app_pass)
+            s.send_message(msg)
+    except Exception as e:
+        print(f"メール送信失敗: {type(e).__name__}: {e}（PDFは生成済み）")
+        _log(f"失敗（{type(e).__name__}）")
+        return
     print(f"メール送信完了 → {ADDR}（{os.path.basename(pdf_path)}）")
+    _log("成功")
 
 
 send_report_mail(OUT)
