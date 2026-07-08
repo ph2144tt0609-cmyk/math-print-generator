@@ -2,9 +2,9 @@
 """資産管理台帳 分析レポート PDF 生成（A4・6ページ・日本語）
 
 P1: ダッシュボード（KPI／金融資産内訳／BS／不動産×ローン／前月からの資産の変化）
-P2: 投資の見える化（NISA生涯枠の進捗／企業型DCの積み上げ・年7%）
+P2: 投資の見える化（NISA生涯枠の進捗／企業型DCの積み上げ・年7%／金融資産の歩み）
 P3: 不動産投資と老後の設計（住宅＋投資ローン／サブリース／老後収入の柱・夫婦の私的年金）
-P4: 強み・弱点・アクション／金融資産の歩み／提出資料チェックリスト
+P4: 強み・弱点・アクション／提出資料チェックリスト
 P5: 保険・保障の総点検（保障マップ／加入保険一覧／名義変更スキーム／保険の弱点・残る穴）
 P6: 世帯年収（実収入）の推移（旅費_世帯年収まとめ.xlsx を参照し年次推移を自動表示）
 """
@@ -23,7 +23,7 @@ pdfmetrics.registerFont(TTFont("JP",  r"C:\Windows\Fonts\meiryo.ttc",  subfontIn
 pdfmetrics.registerFont(TTFont("JPB", r"C:\Windows\Fonts\meiryob.ttc", subfontIndex=0))
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(BASE, "資産管理台帳_分析レポート_20260702_v25.pdf")
+OUT = os.path.join(BASE, "資産管理台帳_分析レポート_20260708_v30.pdf")
 
 W, H = A4                      # 595.27 x 841.89
 ML, MR = 36, 36                # 左右マージン
@@ -102,19 +102,19 @@ LOAN_NISHI_PMT  = 75_694        # 西台 毎月返済
 RE_LOAN_TOTAL   = LOAN_UNOKI_ZAN + LOAN_NISHI_ZAN     # 45,677,483
 RE_PMT_TOTAL    = LOAN_UNOKI_PMT + LOAN_NISHI_PMT     # 161,481 /月
 
-# ---- 住宅ローン（人宿町マンション・静岡銀行 本店営業部・2025/12照会）----
-# 「お借入れ明細表（変動金利方式）」5枚（2023〜2026年分）で確定。
-# MF登録値57,090,963と一致 → 基準日は2026年1月（残高の確認は完了）。
-HOME_LOAN       = 57_090_963    # 残高（2026年1月時点・お取扱番号00002-0962137）
+# ---- 住宅ローン（人宿町マンション・静岡銀行 本店営業部・2026/06/25 利率変更通知で更新）----
+# 「お借入れ明細表（変動金利方式）」2026-06-25作成分（受領資料_20260702）で更新。
+# 旧基準：2025/12照会5枚＝残高57,090,963（2026年1月・MF登録値と一致）。
+HOME_LOAN       = 56_359_539    # 残高（2026年6月25日通知書時点・お取扱番号00002-0962137）
 HOME_LOAN_GEN   = 62_800_000    # 当初借入額（2022年6月24日）
-HOME_LOAN_PMT   = 160_944       # 毎月返済（毎月26日）
-HOME_LOAN_RATE  = 0.825         # 適用金利（変動・2026年）
+HOME_LOAN_PMT   = 160_944       # 毎月返済（毎月26日・利率変更後も据置）
+HOME_LOAN_RATE  = 1.075         # 適用金利（変動・2026/07〜2026/12）
 HOME_LOAN_END   = "2057-06"     # 最終回ご返済日 2057年6月（35年返済）
-# 金利推移：0.425%（2022借入〜2024）→0.575%（2025/01〜）→0.825%（2025/07〜・2026据置）
+# 金利推移：0.425%（2022借入〜2024）→0.575%（2025/01〜）→0.825%（2025/07〜）→1.075%（2026/07〜・+0.25%）
 
 CARD_DEBT       = 763_270       # クレジットカード未決済（MF負債・2026-06-13）
-DEBT_TOTAL      = HOME_LOAN + RE_LOAN_TOTAL + CARD_DEBT   # 103,531,716（MF負債総額と一致）
-NET_WORTH       = TOTAL_ASSET - DEBT_TOTAL               # 48,435,000
+DEBT_TOTAL      = HOME_LOAN + RE_LOAN_TOTAL + CARD_DEBT   # 102,800,292（住宅ローンのみ2026-06-25通知値。MF負債103,531,716は2026年1月基準＝差はローン返済進捗）
+NET_WORTH       = TOTAL_ASSET - DEBT_TOTAL               # 49,166,424
 
 # ---- サブリース保証賃料（契約書で確定・2026/06/13）----
 RENT_UNOKI_M    = 86_000        # 鵜の木：特定賃貸借契約 86,000円/月（管理費込・2025/10〜2030/09）
@@ -154,10 +154,10 @@ MED_TORU_DAILY   = 14_000       # 亨 入院日額（美香1.3万より高い1.4
 MED_PAY_YEARS    = 10           # 払込期間（完了後に名義変更・保障は終身）
 
 # ---- 金融資産推移（マネーフォワード月次CSV）----
-# CSVは 00_マスタデータ置き場\06_家計_資産データ\資産推移月次\ に集約（投入口の一本化・2026-06-25）。
+# CSVは 00_マスタデータ置き場\32_家計_資産データ\資産推移月次\ に集約（投入口の一本化・2026-06-25）。
 # フォルダ内の最新（ファイル名末尾の日付順）を自動で読むので、毎月ファイル名を直す必要はない。
 import glob as _glob
-CSV_DIR = os.path.normpath(os.path.join(BASE, "..", "..", "00_マスタデータ置き場", "06_家計_資産データ", "資産推移月次"))
+CSV_DIR = os.path.normpath(os.path.join(BASE, "..", "..", "00_マスタデータ置き場", "32_家計_資産データ", "資産推移月次"))
 _csv_files = sorted(_glob.glob(os.path.join(CSV_DIR, "資産推移月次_*.csv")))
 if not _csv_files:
     raise FileNotFoundError(f"資産推移CSVが見つかりません: {CSV_DIR}")
@@ -310,7 +310,7 @@ ONK_ACCT = [  # (口座, 取得額, 恩株%, 直近1年配当)
 ONK_NEAR = "郵船 残り約14年 ／ 第一ライフ 約14.5年 ／ 商船三井 約16.8年"
 
 c = canvas.Canvas(OUT, pagesize=A4)
-c.setTitle("資産管理台帳 分析レポート 2026-07-02 v25（v24=世帯年収ページ等の家計改善を土台に、P3へ高配当株の恩株ページを統合＝配当による元本回収を全保有銘柄・口座別・ハイライトで可視化。夫婦合算＋SPYD。7ページ構成に振り直し。各社資料は2026-06-12/13のまま）")
+c.setTitle("資産管理台帳 分析レポート 2026-07-08 v30（v29の住宅ローン利率更新等の家計改善を土台に、P3へ高配当株の恩株ページを再統合＝配当による元本回収を全保有銘柄・口座別・ハイライトで可視化。夫婦合算＋SPYD。7ページ構成。恩株はP3に恒久化＝再生成時も落とさない）")
 
 
 # ============================================================ 共通関数
@@ -362,13 +362,13 @@ c.rect(0, Y(64), W, 64, fill=1, stroke=0)
 text(ML, 34, "資産管理 分析レポート", 19, "JPB", WHITE)
 text(ML, 52, "田中亨・美香 世帯（本人40歳／妻39歳／湊人さん8歳）", 8.5, "JP", HexColor("#C8D2E4"))
 text(W - MR, 34, "台帳基準日 2026-06-12", 9, "JP", HexColor("#C8D2E4"), "r")
-text(W - MR, 48, "分析日 2026-07-01", 9, "JP", HexColor("#C8D2E4"), "r")
+text(W - MR, 48, "分析日 2026-07-07", 9, "JP", HexColor("#C8D2E4"), "r")
 
 # ---- KPIカード
 kpis = [
     ("総資産",  "1億5,196万円", "金融4,117万＋不動産1億1,080万", DARK),
-    ("総負債",  "1億353万円",   "ローン計1億277万＋カード76万",  RED),
-    ("純資産",  "4,844万円",    "自己資本比率 31.9%",           TEAL),
+    ("総負債",  "1億280万円",   "ローン計1億204万＋カード76万",  RED),
+    ("純資産",  "4,917万円",    "自己資本比率 32.4%",           TEAL),
 ]
 kw = (CW - 20) / 3
 for i, (label, big, small, col) in enumerate(kpis):
@@ -444,12 +444,12 @@ c.rect(bx2, Y(base_t), bar_w, debt_h, fill=1, stroke=0)
 c.setFillColor(HexColor("#A3BE8C"))
 c.rect(bx2, Y(base_t - debt_h), bar_w, nw_h, fill=1, stroke=0)
 text(bx2 + bar_w / 2, base_t - debt_h / 2 + 3, "負債", 8, "JPB", WHITE, "c")
-text(bx2 + bar_w / 2, base_t - debt_h / 2 + 13, "1億353万", 7, "JP", WHITE, "c")
+text(bx2 + bar_w / 2, base_t - debt_h / 2 + 13, "1億280万", 7, "JP", WHITE, "c")
 text(bx2 + bar_w / 2, base_t - debt_h - nw_h / 2 + 3, "純資産", 8, "JPB", WHITE, "c")
-text(bx2 + bar_w / 2, base_t - debt_h - nw_h / 2 + 13, "4,844万", 7, "JP", WHITE, "c")
+text(bx2 + bar_w / 2, base_t - debt_h - nw_h / 2 + 13, "4,917万", 7, "JP", WHITE, "c")
 text(bx2 + bar_w / 2, base_t + 12, "負債＋純資産", 8.5, "JPB", SUB, "c")
 
-text(bx, 340, "総資産の72.9%が不動産。負債比率68.1%。", 7.5, "JP", SUB)
+text(bx, 340, "総資産の72.9%が不動産。負債比率67.6%。", 7.5, "JP", SUB)
 
 # ---- 不動産×ローン明細表
 text(ML, 358, "■ 不動産とローンの対応（含み損益＝評価額−ローン残高）", 10.5, "JPB", NAVY)
@@ -465,10 +465,10 @@ for i, htxt in enumerate(headers):
         text(cols[i + 1] - 4, rt + 11, htxt, 8, "JPB", WHITE, "r")
 
 rows = [
-    ("人宿町マンション", "自宅",  "62,800,000", "57,090,963", "+5,709,037", "90.9%", "－",         False),
+    ("人宿町マンション", "自宅",  "62,800,000", "56,359,539", "+6,440,461", "89.7%", "－",         False),
     ("鵜の木",          "投資用", "25,500,000", "24,266,159", "+1,233,841", "95.2%", "8.6万円/月", False),
     ("西台",            "投資用", "22,500,000", "21,411,324", "+1,088,676", "95.2%", "7.6万円/月", False),
-    ("合計",            "",      "110,800,000", "102,768,446", "+8,031,554", "92.8%", "16.2万円/月", False),
+    ("合計",            "",      "110,800,000", "102,037,022", "+8,762,978", "92.1%", "16.2万円/月", False),
 ]
 rt += 15
 for name, use, val, loan, eq, ltv, rent, warn in rows:
@@ -487,13 +487,13 @@ c.setStrokeColor(MGRAY)
 c.setLineWidth(0.5)
 c.line(ML, Y(rt), ML + CW, Y(rt))
 text(ML, rt + 11,
-     "※住宅ローンは静岡銀行照会で確定（残高5,709万・基準日2026年1月）、投資用2戸はオリックス照会値。MF負債1億353万円＝3本＋カード76万で一致。",
+     "※住宅ローンは静岡銀行の利率変更通知で更新（残高5,636万・基準日2026年6月25日）、投資用2戸はオリックス照会値。カード76万はMF（2026-06-13）。",
      7, "JP", SUB)
 
 # ---- 指標チップ
 chips = [
     ("不動産比率", "72.9%", "総資産に占める割合"),
-    ("負債比率", "68.1%", "総負債÷総資産"),
+    ("負債比率", "67.6%", "総負債÷総資産"),
     ("生活防衛資金", "668万円", "現金・預金"),
     ("投資用表面利回り", "4.1%", "年間家賃195万÷評価4,800万"),
 ]
@@ -512,9 +512,9 @@ box(ML, st, CW, 90, TEALBG)
 c.setFillColor(TEAL)
 c.rect(ML, Y(st + 90), 3, 90, fill=1, stroke=0)
 text(ML + 12, st + 16, "総合評価", 9.5, "JPB", DARK)
-summary = ("40歳で純資産約4,844万円・年間積立力は同年代上位の優良世帯。今回の照会で住宅ローン（静岡銀行・残高5,709万）も確定し、"
-           "投資用2戸はいずれも含み益プラス（合計＋803万円）と分かった。亨さんの保険も外貨建個人年金（ニッセイ・ウェルス／静岡銀行窓販）と判明。"
-           "ただし不動産レバレッジは依然高く、住宅0.425→0.825%・投資用2.25→2.85%（予定）と3本すべての変動金利が上昇しており、金利上昇が最大のリスク。"
+summary = ("40歳で純資産約4,917万円・年間積立力は同年代上位の優良世帯。住宅ローンは静岡銀行の利率変更通知（2026-06-25）で残高を5,636万に更新。"
+           "投資用2戸はいずれも含み益プラス（合計＋876万円）。亨さんの保険も外貨建個人年金（ニッセイ・ウェルス／静岡銀行窓販）と判明。"
+           "ただし不動産レバレッジは依然高く、住宅0.425→1.075%・投資用2.25→2.85%（予定）と3本すべての変動金利が上昇しており、金利上昇が最大のリスク。"
            "優先課題は ①変動金利上昇への備え（投資用は+1%で年46万円の利息増） ②将来予測利回りの現実化 ③教育資金の独立確保 の3点。")
 yy = st + 31
 for ln in wrap(summary, "JP", 8.5, CW - 24):
@@ -727,6 +727,54 @@ dcp2 = "台帳の将来予測「1.7億円」は年8%前提。本レポートは�
 text(ML + 12, dpt + 15, dcp, 7.6, "JP", DARK)
 text(ML + 12, dpt + 28, dcp2, 7.6, "JP", SUB)
 
+# ---- 金融資産の歩み（不動産除く・マネーフォワード月次）※P4から移設・拡大（余白平準化・2026-07-06 v25）
+fw_t = dpt + 36 + 24
+text(ML, fw_t, "■ 金融資産の歩み（不動産除く）", 10.5, "JPB", NAVY)
+fw_t += 10
+fw_ch = 90
+fw_ymax = 40_000_000
+fw_n = len(trend)
+
+
+def fw_cx(i):
+    return ML + CW * i / (fw_n - 1)
+
+
+def fw_cy(v):
+    return fw_t + fw_ch - fw_ch * v / fw_ymax
+
+
+for gv in range(0, fw_ymax + 1, 10_000_000):
+    yline = fw_t + fw_ch - fw_ch * gv / fw_ymax
+    c.setStrokeColor(MGRAY)
+    c.setLineWidth(0.4)
+    c.line(ML, Y(yline), ML + CW, Y(yline))
+    if gv:
+        text(ML - 2, yline + 2, f"{gv // 10_000_000},000万", 6, "JP", GRAY, "r")
+for i, (ym, _) in enumerate(trend):
+    if ym.endswith("/01"):
+        text(fw_cx(i), fw_t + fw_ch + 9, ym[:4], 6, "JP", GRAY, "c")
+fw_p = c.beginPath()
+fw_p.moveTo(fw_cx(0), Y(fw_t + fw_ch))
+for i, (_, v) in enumerate(trend):
+    fw_p.lineTo(fw_cx(i), Y(fw_cy(v)))
+fw_p.lineTo(fw_cx(fw_n - 1), Y(fw_t + fw_ch))
+fw_p.close()
+c.setFillColor(TEALBG)
+c.drawPath(fw_p, fill=1, stroke=0)
+fw_p2 = c.beginPath()
+fw_p2.moveTo(fw_cx(0), Y(fw_cy(trend[0][1])))
+for i, (_, v) in enumerate(trend):
+    fw_p2.lineTo(fw_cx(i), Y(fw_cy(v)))
+c.setStrokeColor(TEAL)
+c.setLineWidth(1.3)
+c.drawPath(fw_p2, fill=0, stroke=1)
+c.setFillColor(TEAL)
+c.circle(fw_cx(fw_n - 1), Y(fw_cy(trend[-1][1])), 2.2, fill=1, stroke=0)
+text(W - MR, fw_cy(trend[-1][1]) - 5, f"{trend[-1][1]:,}円", 7.5, "JPB", DARK, "r")
+# ※x軸の年ラベル（fw_t+fw_ch+9）と注記の間隔を15pt確保し、旧版で起きていた重なりを解消
+text(ML, fw_t + fw_ch + 24, "※2026年1月の急増は口座連携の追加（株式・DC口座等）によるもの。実体の増加と区別して読むこと。", 6.5, "JP", SUB)
+
 text(W / 2, 826, "－ 2 / 7 －", 8, "JP", GRAY, "c")
 c.showPage()
 
@@ -845,7 +893,7 @@ text(W - MR, 28, "投資用ローン・サブリース・老後収入の柱", 8,
 
 # ---- ローンの状況（住宅＋投資用・すべて変動金利）
 lt = 66
-text(ML, lt, "■ ローンの状況（住宅＋投資用2戸・すべて変動金利／2025-12〜2026照会）", 10.5, "JPB", NAVY)
+text(ML, lt, "■ ローンの状況（住宅＋投資用2戸・すべて変動金利／基準2026-06）", 10.5, "JPB", NAVY)
 lcols = [ML, ML + 132, ML + 222, ML + 304, ML + 392, W - MR]
 lhead = ["ローン（借入先）", "ローン残高", "毎月返済", "適用金利", "完済予定"]
 lt += 10
@@ -855,7 +903,7 @@ text(lcols[0] + 4, lt + 11, lhead[0], 8, "JPB", WHITE)
 for i in range(1, 5):
     text(lcols[i + 1] - 4, lt + 11, lhead[i], 8, "JPB", WHITE, "r")
 lrows = [
-    ("人宿町 自宅（静岡銀行）",   f"{HOME_LOAN:,}円",     f"{HOME_LOAN_PMT:,}円", "変動 0.825%", HOME_LOAN_END, False),
+    ("人宿町 自宅（静岡銀行）",   f"{HOME_LOAN:,}円",     f"{HOME_LOAN_PMT:,}円", "変動 1.075%", HOME_LOAN_END, False),
     ("鵜の木 投資用（ｵﾘｯｸｽ000001）", f"{LOAN_UNOKI_ZAN:,}円", f"{LOAN_UNOKI_PMT:,}円", "変動 2.600%", "2058-09", False),
     ("西台 投資用（ｵﾘｯｸｽ000002）",   f"{LOAN_NISHI_ZAN:,}円", f"{LOAN_NISHI_PMT:,}円", "変動 2.600%", "2058-09", False),
     ("合計（住宅＋投資用）",       f"{HOME_LOAN + RE_LOAN_TOTAL:,}円", f"{HOME_LOAN_PMT + RE_PMT_TOTAL:,}円", "全て変動", "—", True),
@@ -875,7 +923,7 @@ lt += 10
 colw = (CW - 12) / 2
 box(ML, lt, colw, 56, AMBERBG)
 text(ML + 10, lt + 14, "3本とも変動金利で上昇中", 8.5, "JPB", AMBER)
-text(ML + 10, lt + 29, "住宅 0.425→0.575→0.825% ／ 投資用 2.25→2.50→2.60%", 7.0, "JP", TXT)
+text(ML + 10, lt + 29, "住宅 0.425→0.575→0.825→1.075% ／ 投資用 2.25→2.50→2.60%", 7.0, "JP", TXT)
 text(ML + 10, lt + 41, "→ 投資用は次回2.85%予定。投資用+1%で年約46万円増。", 7.0, "JPB", RED)
 bx3 = ML + colw + 12
 box(bx3, lt, colw, 56, LGRAY)
@@ -939,7 +987,7 @@ rl_lx = ML + 40      # y軸ラベル幅を確保
 rl_rx = W - MR - 10
 rl_w = rl_rx - rl_lx
 rl_ymin, rl_ymax = 0.0, 3.5
-rl_xlabels = ["2022\n借入", "2024", "2025/1", "2025/7", "2026\n現在"]
+rl_xlabels = ["2022\n借入", "2024", "2025/1", "2025/7", "2026/7\n新利率"]
 rl_n = len(rl_xlabels)
 rl_xs = [rl_lx + rl_w * i / (rl_n - 1) for i in range(rl_n)]
 
@@ -968,8 +1016,8 @@ for i, lbl in enumerate(rl_xlabels):
     for j, part in enumerate(parts):
         text(rl_xs[i], rl_top + rl_ch + 8 + j * 9, part, 6, "JP", GRAY, "c")
 
-# 住宅ローン（BLUE）: 0.425% → 0.575% → 0.825%
-h_rates = [0.425, 0.425, 0.575, 0.825, 0.825]
+# 住宅ローン（BLUE）: 0.425% → 0.575% → 0.825% → 1.075%（2026/07〜）
+h_rates = [0.425, 0.425, 0.575, 0.825, 1.075]
 ph = c.beginPath()
 ph.moveTo(rl_xs[0], rl_y(h_rates[0]))
 for i in range(1, rl_n):
@@ -993,7 +1041,7 @@ c.drawPath(pv, fill=0, stroke=1)
 # 最終値にドット＋値ラベル
 c.setFillColor(BLUE)
 c.circle(rl_xs[-1], rl_y(h_rates[-1]), 2.5, fill=1, stroke=0)
-text(rl_xs[-1] - 4, rl_tc(h_rates[-1]) - 6, "0.825%", 6.5, "JPB", BLUE, "r")
+text(rl_xs[-1] - 4, rl_tc(h_rates[-1]) - 6, "1.075%", 6.5, "JPB", BLUE, "r")
 c.setFillColor(RED)
 c.circle(rl_xs[-1], rl_y(v_rates[-1]), 2.5, fill=1, stroke=0)
 text(rl_xs[-1] - 4, rl_tc(v_rates[-1]) - 6, "2.60%", 6.5, "JPB", RED, "r")
@@ -1003,7 +1051,7 @@ rl_lg = rl_top + rl_ch + 28
 c.setStrokeColor(BLUE)
 c.setLineWidth(1.5)
 c.line(rl_lx, Y(rl_lg), rl_lx + 22, Y(rl_lg))
-text(rl_lx + 26, rl_lg + 4, "住宅ローン（静岡銀行・0.425%→0.825%）", 7, "JP", TXT)
+text(rl_lx + 26, rl_lg + 4, "住宅ローン（静岡銀行・0.425%→1.075%）", 7, "JP", TXT)
 c.setStrokeColor(RED)
 c.line(rl_lx + 190, Y(rl_lg), rl_lx + 212, Y(rl_lg))
 text(rl_lx + 216, rl_lg + 4, "投資用ローン（オリックス2戸・2.25%→2.60%）", 7, "JP", TXT)
@@ -1016,13 +1064,13 @@ c.showPage()
 c.setFillColor(NAVY)
 c.rect(0, Y(44), W, 44, fill=1, stroke=0)
 text(ML, 28, "分析サマリー：強み・弱点・アクション", 14, "JPB", WHITE)
-text(W - MR, 28, "田中家 資産管理レポート 2026-07-01", 8, "JP", HexColor("#C8D2E4"), "r")
+text(W - MR, 28, "田中家 資産管理レポート 2026-07-07", 8, "JP", HexColor("#C8D2E4"), "r")
 
 # ---- 強み
 text(ML, 66, "■ 強み", 10.5, "JPB", TEAL)
 strengths = [
-    "40歳で純資産約4,844万円。夫婦の企業型DCはS&P500へ月11万円拠出（現在1,187万円）で資産形成エンジンが強力。",
-    "住宅ローン（静岡銀行・残高5,709万）と亨の外貨建個人年金が今回確定。投資用2戸も含み益プラス（合計＋803万円）。",
+    "40歳で純資産約4,917万円。夫婦の企業型DCはS&P500へ月11万円拠出（現在1,187万円）で資産形成エンジンが強力。",
+    "住宅ローン（静岡銀行・残高5,636万）と亨の外貨建個人年金が確定。投資用2戸も含み益プラス（合計＋876万円）。",
     "夫婦のNISAは合計424万円・含み益+105万円（亨+20%／美香+51%）。生涯枠3,600万円の11.8%を消化し運用好調。",
     "金融資産は10年で約253万円→約3,944万円（約15.6倍）。入金力と継続力が数字で実証されている。",
     "老後の柱は公的年金250＋家賃195＋配当280＋私的年金（美香120・亨87）万円と多層で、DC約1.48億も別途控える。",
@@ -1042,7 +1090,7 @@ wt += 10
 wcol_p, wcol_t, wcol_d = 34, 124, CW - 34 - 124
 weaknesses = [
     ("高", "変動金利の上昇が現実化（3本とも変動）",
-     "投資用2戸は2.25→2.60%（次回2.85%予定）、住宅ローンも0.425→0.825%へ実際に上昇。3本すべて変動金利で、投資用は残高4,568万に+1%で年約46万円増。家賃はサブリースで安定だが返済増は手残りを直撃する。固定化の可否や繰上返済を検討。"),
+     "投資用2戸は2.25→2.60%（次回2.85%予定）、住宅ローンも0.425→1.075%へ実際に上昇（2026-07適用）。3本すべて変動金利で、投資用は残高4,568万に+1%で年約46万円増。家賃はサブリースで安定だが返済増は手残りを直撃する。固定化や繰上返済を検討。"),
     ("中", "DC予測は年8%だと強気（本試算は年7%）",
      "台帳の「65歳で1.7億」は年8%前提。本レポートは保守的に年7%で見て約1.48億（P2）。年5%なら約1.0億まで下がる。S&P500一本のため、下振れ局面に備えて取り崩し開始前の数年はリスクを落とす出口戦略も検討を。"),
     ("中", "投資用2戸の含み益が薄い",
@@ -1058,7 +1106,7 @@ weaknesses = [
     ("中", "美香さんのNISAが手薄",
      "成長投資枠1,200万円が丸ごと未使用で、つみたて月1万円のみ＝生涯枠の消化は2.9%。含み益率+51%と運用は好調。方針どおり成長枠を優先するなら、夫婦で最優先に入金すべきはここで、非課税の恩恵が最も大きい。"),
     ("低", "亨の外貨建個人年金は為替・解約に注意",
-     "亨のニッセイ・ウェルス生命 外貨建個人年金（静岡銀行窓販・残高はMF保険列170万）は米ドル建で円高だと円受取が目減り。金利上昇で市場価格調整が大きく、今解約すると返戻は積立の約4割（2,625ドル/6,360ドル）。満期保有が前提で、個人年金保険料控除は活用を。住宅ローンの基準日も2026年1月で確定。"),
+     "亨のニッセイ・ウェルス生命 外貨建個人年金（静岡銀行窓販・残高はMF保険列170万）は米ドル建で円高だと円受取が目減り。金利上昇で市場価格調整が大きく、今解約すると返戻は積立の約4割（2,625ドル/6,360ドル）。満期保有が前提で、個人年金保険料控除は活用を。住宅ローンの基準日も2026年6月に更新。"),
 ]
 pcol = {"高": RED, "中": AMBER, "低": GRAY}
 
@@ -1097,7 +1145,7 @@ wt += 16
 text(ML, wt, "■ 今後のアクション", 10.5, "JPB", NAVY)
 wt += 6
 actions = [
-    ("今月", "住宅0.825%・投資用2.6%と3本とも変動金利が上昇中。固定化／繰上返済の効果を試算する"),
+    ("今月", "住宅1.075%・投資用2.6%と3本とも変動金利が上昇中。固定化／繰上返済の効果を試算する"),
     ("今月", "美香さんのNISA成長枠（1,200万円・未使用）への入金を最優先で開始する（つみたて増額より先に）"),
     ("今月", "住宅ローン（静岡銀行）の団信の保障内容を確認する（残高・金利・残期間・基準日は確定済み）"),
     ("年内", "亨の外貨建個人年金は満期保有を前提に出口（為替）を計画。個人年金保険料控除を年末調整で適用する"),
@@ -1112,57 +1160,9 @@ for due, act in actions:
     text(ML + 38, wt + 8.5, "□ " + act, 8.5, "JP", TXT)
     wt += 15
 
-# ---- 金融資産の歩み（不動産除く・マネーフォワード月次）
-wt += 8
-text(ML, wt, "■ 金融資産の歩み（不動産除く）", 10.5, "JPB", NAVY)
-# 前月比の一言サマリーは P1「前月からの資産の変化」へ集約したためP4からは削除
-# （終点の金額ラベルとの重なりも解消。折れ線と終点ラベルはそのまま）。
-wt += 8
-ch_h = 48
-ymax = 40_000_000
-n = len(trend)
-
-
-def cx(i):
-    return ML + CW * i / (n - 1)
-
-
-def cy(v):
-    return wt + ch_h - ch_h * v / ymax
-
-
-for gv in range(0, ymax + 1, 10_000_000):
-    c.setStrokeColor(MGRAY)
-    c.setLineWidth(0.4)
-    c.line(ML, Y(wt + ch_h - ch_h * gv / ymax), ML + CW, Y(wt + ch_h - ch_h * gv / ymax))
-    if gv:
-        text(ML - 2, wt + ch_h - ch_h * gv / ymax + 2, f"{gv // 10_000_000},000万", 6, "JP", GRAY, "r")
-for i, (ym, _) in enumerate(trend):
-    if ym.endswith("/01"):
-        text(cx(i), wt + ch_h + 9, ym[:4], 6, "JP", GRAY, "c")
-p = c.beginPath()
-p.moveTo(cx(0), Y(wt + ch_h))
-for i, (_, v) in enumerate(trend):
-    p.lineTo(cx(i), Y(cy(v)))
-p.lineTo(cx(n - 1), Y(wt + ch_h))
-p.close()
-c.setFillColor(TEALBG)
-c.drawPath(p, fill=1, stroke=0)
-p2 = c.beginPath()
-p2.moveTo(cx(0), Y(cy(trend[0][1])))
-for i, (_, v) in enumerate(trend):
-    p2.lineTo(cx(i), Y(cy(v)))
-c.setStrokeColor(TEAL)
-c.setLineWidth(1.3)
-c.drawPath(p2, fill=0, stroke=1)
-c.setFillColor(TEAL)
-c.circle(cx(n - 1), Y(cy(trend[-1][1])), 2.2, fill=1, stroke=0)
-text(W - MR, cy(trend[-1][1]) - 5, f"{trend[-1][1]:,}円", 7.5, "JPB", DARK, "r")
-wt += ch_h + 14
-text(ML, wt, "※2026年1月の急増は口座連携の追加（株式・DC口座等）によるもの。実体の増加と区別して読むこと。", 6.5, "JP", SUB)
-
 # ---- 定期アップロード資料チェックリスト
-wt += 18
+# 「金融資産の歩み」チャートはP2（■企業型DCの積み上げ の下の余白）へ移設・拡大済み（余白平準化・2026-07-06 v25）
+wt += 22
 text(ML, wt, "■ 定期アップロード資料チェックリスト（毎回このフォルダに入れる資料）", 10, "JPB", NAVY)
 checklist = [
     ("資産推移 月次CSV（MF）",              "毎月",            False),
@@ -1190,7 +1190,7 @@ for i, (name, freq, pending) in enumerate(checklist):
     text(x + clw, y + 7, freq, 6.5, "JP", AMBER if pending else fcol.get(freq, SUB), "r")
 wt += 15 + 5 * 12
 
-text(ML, 822, "※本レポートは台帳・各社照会の数値に基づく概算・参考情報であり、特定の金融商品の売買を推奨するものではありません。", 6.5, "JP", GRAY)
+text(ML, 813, "※本レポートは台帳・各社照会の数値に基づく概算・参考情報であり、特定の金融商品の売買を推奨するものではありません。", 6.5, "JP", GRAY)
 text(W / 2, 826, "－ 5 / 7 －", 8, "JP", GRAY, "c")
 c.showPage()
 
@@ -1328,7 +1328,7 @@ for ln in wrap(summ5, "JP", 8, CW - 24):
     text(ML + 12, yy, ln, 8, "JP", TXT)
     yy += 13
 
-text(ML, 822, "※医療保険2本は掛け捨て（無解約返戻金型）・法人負担のため、P1〜P4の資産・負債・純資産の数値には影響しません。", 6.5, "JP", GRAY)
+text(ML, 813, "※医療保険2本は掛け捨て（無解約返戻金型）・法人負担のため、P1〜P4の資産・負債・純資産の数値には影響しません。", 6.5, "JP", GRAY)
 text(W / 2, 826, "－ 6 / 7 －", 8, "JP", GRAY, "c")
 
 c.showPage()
